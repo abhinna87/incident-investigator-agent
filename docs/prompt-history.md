@@ -6,10 +6,10 @@ redacted (see `scripts/export-prompt-history.mjs` for the redaction rules).
 
 | | |
 |---|---|
-| Human turns | 13 |
-| Total turns | 186 |
+| Human turns | 14 |
+| Total turns | 196 |
 | Started | 2026-09-09T13:49:51.911Z |
-| Last activity | 2026-09-11T20:01:19.756Z |
+| Last activity | 2026-09-11T21:15:25.613Z |
 | Source | `03f9dad5-4d89-4240-894b-097fd09f11eb.jsonl` (Claude Code JSONL) |
 
 Assistant turns are summarised to the tools they invoked plus their prose, so
@@ -921,5 +921,50 @@ Use installed help and schema to check whether documented features exist in the 
 > **Tools:** Bash
 
 > Gate fully green. Documenting the finding in the README (it's a real platform gotcha worth sharing) and committing.
+
+> **Tools:** Bash
+
+> **Tools:** Bash
+
+> Done. **Verified working against real Llama 3.3, not just compiling.**
+> 
+> ## Your submission URL
+> ```
+> https://github.com/abhinna87/incident-investigator-agent
+> ```
+> 
+> ## What running it actually found
+> 
+> Two bugs no typecheck would have caught — this is why I pushed to run it:
+> 
+> **1. `env.AI.run()` fails inside a Workflow step.** Opaque `internal error; reference = …`. Cause: the AI binding is remote (no local simulation) while Workflows always run locally, so the remote proxy isn't in a Workflow's execution context. The identical call from `fetch()` and from the Durable Object works. Fixed by moving model access to `IncidentAgent.runPhaseModel` with the Workflow calling it over RPC — which is the better design anyway: one component owns model access, one owns sequencing.
+> 
+> **2. Wrong response envelope.** Llama 3.3 with `messages` returns OpenAI-shaped `choices[0].message.content`, not `{ response }`. My extractor only handled `{ response }` and would have written a raw JSON envelope into your RCA. Now handles both.
+> 
+> Also: the starter's default model (`kimi-k2.7-code`) is **paid-plan only** — so Llama 3.3 was a hard requirement, not just the recommendation.
+> 
+> ## Real output from the Jira inci …
+
+## 14. Prompt
+
+```text
+yes
+```
+
+> **Tools:** Bash
+
+> **CI green on both commits** ✅ — the repo shows a passing badge state, no red X for a recruiter to see.
+> 
+> Now fixing the dev script so the documented command is the one that actually works.
+
+> **Tools:** Bash
+
+> Let me verify the documented commands work exactly as written before committing.
+
+> **Tools:** Bash
+
+> **The documented commands work verbatim, zero errors.** `npm run dev` → up on 8787 with the right binding modes, `./seeds/send.sh <file>` with no port arg → incident accepted, all five phases ran clean.
+> 
+> Committing and pushing.
 
 > **Tools:** Bash

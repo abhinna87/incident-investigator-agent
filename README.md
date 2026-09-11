@@ -137,26 +137,47 @@ the model call leaves it.
 ```sh
 npm install
 npx wrangler login        # free account is fine
-npm run dev               # http://localhost:5173
+npm run dev               # http://localhost:8787
 ```
 
-**One-time account setup.** `wrangler login` alone is not enough. The Vite plugin
-opens a remote proxy session for the AI binding, and that needs a workers.dev
-subdomain to exist on the account, or dev fails with:
+`npm run dev` runs `wrangler dev` rather than `vite dev`. That is deliberate: the
+Vite plugin opens a remote proxy session for the AI binding, which additionally
+requires a workers.dev subdomain to be registered on the account, and fails with
 
 ```
 You need to register a workers.dev subdomain before running the dev command in
 remote mode  (API error 10063 on /workers/subdomain/edge-preview)
 ```
 
-Register one at **Workers → Overview** in the dashboard. Any name will do; this
-project never uses the subdomain for anything else.
+`wrangler dev` needs no such subdomain and gives exactly the bindings this project
+wants:
+
+```
+env.IncidentAgent   Durable Object   local
+env.RCA_WORKFLOW    Workflow         local
+env.AI              AI               remote
+```
+
+The agent and the workflow run on your machine; only the model call leaves it. If
+you want the Vite dev server with hot module reloading for UI work, register a
+subdomain and use `npm run dev:vite`.
 
 Send a synthetic incident:
 
 ```sh
 ./seeds/send.sh pagerduty-tunnel-down.json
 ./seeds/send.sh jira-routing-churn.json
+```
+
+Each returns the incident key and the workflow instance it started:
+
+```json
+{
+  "accepted": true,
+  "incident": "pd-4821",
+  "ok": true,
+  "instanceId": "wf_dsa2I-FAoeIdm7L5wZskz"
+}
 ```
 
 Then open the UI and watch the phases land. You can interrupt at any point and
