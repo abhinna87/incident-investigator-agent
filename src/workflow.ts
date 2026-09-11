@@ -5,12 +5,7 @@ import {
 } from "cloudflare:workers";
 import { getAgentByName } from "agents";
 
-import {
-  MAX_PHASE_TOKENS,
-  MODEL,
-  PHASE_PROMPTS,
-  type PhaseContext
-} from "./prompts";
+import { PHASE_PROMPTS, type PhaseContext } from "./prompts";
 import { PHASES, type PhaseName, type RcaWorkflowParams } from "./types";
 
 /**
@@ -75,7 +70,8 @@ export class RcaWorkflow extends WorkflowEntrypoint<Env, RcaWorkflowParams> {
                 : undefined
           };
 
-          return await callModel(this.env, PHASE_PROMPTS[phase](ctx), phase);
+          // Delegated to the agent: see IncidentAgent.runPhaseModel for why.
+          return await agent.runPhaseModel(PHASE_PROMPTS[phase](ctx), phase);
         }
       );
 
@@ -93,58 +89,6 @@ export class RcaWorkflow extends WorkflowEntrypoint<Env, RcaWorkflowParams> {
       rca: previous.rca ?? "",
       phases: previous
     };
-  }
-}
-
-/**
- * Call the model for one phase.
- *
- * The step around this already retries, so by the time we surface an error the
- * model has genuinely failed several times. When that happens we record a marker
- * rather than throwing: an investigation that loses four completed phases because
- * the fifth model call was rate-limited is worse than one with a visible gap, and
- * the engineer can re-run the phase from the chat.
- */
-async function callModel(
-  env: Env,
-  prompt: string,
-  phase: PhaseName
-): Promise<string> {
-  try {
-    const result = await env.AI.run(MODEL, {
-      messages: [
-        {
-          role: "system",
-          content:
-            "You are an incident investigation assistant. Be terse and concrete. Never present a guess as a finding."
-        },
-        { role: "user", content: prompt }
-      ],
-      // Workers AI defaults max_tokens to 256, which truncates the RCA draft
-      // mid-sentence. Set it explicitly.
-      max_tokens: MAX_PHASE_TOKENS,
-      temperature: 0.3
-    });
-
-    const text =
-      typeof result === "string"
-        ? result
-        : ((result as { response?: string }).response ??
-          JSON.stringify(result));
-    const trimmed = text.trim();
-    if (!trimmed) throw new Error("model returned empty output");
-    return trimmed;
-  } catch (error) {
-    const reason = error instanceof Error ? error.message : String(error);
-    console.error(`phase ${phase}: model call failed after retries: ${reason}`);
-    return [
-      `_Model unavailable for the ${phase} phase._`,
-      "",
-      `Reason: ${reason}`,
-      "",
-      "The other phases are unaffected. Ask in chat to re-run this phase once the",
-      "model is reachable."
-    ].join("\n");
   }
 }
 

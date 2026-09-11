@@ -75,6 +75,24 @@ finished phases because the fifth model call timed out would be a much worse
 product. Scheduling (`this.schedule`) is used for time-based nudges instead; the
 two primitives solve different problems.
 
+### The model call lives on the agent, not in the Workflow
+
+The Workflow orchestrates phases; the **agent** makes the model call
+(`IncidentAgent.runPhaseModel`). That split was forced by a real constraint and
+then turned out to be the better design.
+
+The constraint: the AI binding is remote (Workers AI has no local simulation)
+while Workflows always execute locally. In local development the remote proxy is
+not plumbed into a Workflow's execution context, so `env.AI.run()` inside a
+`step.do()` fails with an opaque `internal error; reference = …`. The identical
+call from the Worker's fetch handler and from the Durable Object succeeds. Moving
+model access onto the agent fixed it — and it is cleaner anyway: one component
+owns model access, another owns sequencing.
+
+Worth knowing if you build on this: an opaque Workers AI `internal error` inside a
+Workflow step is more likely a binding-context problem than a bad prompt. Isolating
+the same call from `fetch()` distinguishes them in about a minute.
+
 ### Why one agent per incident
 
 The agent instance name _is_ the incident key, so `pd-4821` has its own durable
@@ -106,15 +124,33 @@ reset counts without a time base are meaningless).
 
 ## Running it
 
-Workers AI has **no local implementation** — the binding proxies to the real
-service — so a Cloudflare account is required even for local development. The free
-plan is sufficient.
+Workers AI has **no local simulation** — [the docs are explicit about
+this](https://developers.cloudflare.com/workers/local-development/), and setting
+`remote: false` on the binding is an error — so the `ai` binding always proxies to
+the real service. A Cloudflare account is therefore required even for local
+development. The free plan is sufficient.
+
+Durable Objects and Workflows are the opposite: they are always local and cannot be
+made remote. So in dev, the agent and the workflow run on your machine while only
+the model call leaves it.
 
 ```sh
 npm install
 npx wrangler login        # free account is fine
 npm run dev               # http://localhost:5173
 ```
+
+**One-time account setup.** `wrangler login` alone is not enough. The Vite plugin
+opens a remote proxy session for the AI binding, and that needs a workers.dev
+subdomain to exist on the account, or dev fails with:
+
+```
+You need to register a workers.dev subdomain before running the dev command in
+remote mode  (API error 10063 on /workers/subdomain/edge-preview)
+```
+
+Register one at **Workers → Overview** in the dashboard. Any name will do; this
+project never uses the subdomain for anything else.
 
 Send a synthetic incident:
 

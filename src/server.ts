@@ -10,7 +10,7 @@ import {
 } from "ai";
 import { z } from "zod";
 
-import { MODEL, SYSTEM_PROMPT } from "./prompts";
+import { MAX_PHASE_TOKENS, MODEL, SYSTEM_PROMPT } from "./prompts";
 import { verifyWebhook } from "./webhooks/verify";
 import {
   normalizePagerDuty,
@@ -192,6 +192,11 @@ export class IncidentAgent extends AIChatAgent<Env, IncidentState> {
   }
 
   @callable()
+  async getIncidentState(): Promise<IncidentState> {
+    return this.state;
+  }
+
+  @callable()
   async getPhases(): Promise<PhaseRecord[]> {
     return this.sql<PhaseRecord>`
       SELECT name, status, started_at, finished_at, output FROM phases
@@ -213,6 +218,49 @@ export class IncidentAgent extends AIChatAgent<Env, IncidentState> {
     `;
     this.note("engineer", `Runbook saved: ${name}`);
     return { ok: true, name };
+  }
+
+  /**
+   * Run one phase's model call.
+   *
+   * This lives on the agent rather than in the Workflow because the AI binding is
+   * remote while Workflows execute locally, and in local development the remote
+   * proxy is not plumbed into a Workflow's execution context — the call fails
+   * there with an opaque "internal error". The agent is a Durable Object that
+   * does have access, so the Workflow orchestrates and the agent owns model
+   * access. That split is also the cleaner design: one component talks to the
+   * model, one decides what order to do things in.
+   */
+  async runPhaseModel(prompt: string, phase: PhaseName): Promise<string> {
+    try {
+      const result = await this.env.AI.run(MODEL, {
+        messages: [
+          {
+            role: "system",
+            content:
+              "You are an incident investigation assistant. Be terse and concrete. Never present a guess as a finding."
+          },
+          { role: "user", content: prompt }
+        ],
+        // Workers AI defaults max_tokens to 256, which truncates the RCA draft
+        // mid-sentence.
+        max_tokens: MAX_PHASE_TOKENS,
+        temperature: 0.3
+      });
+      const text = extractModelText(result);
+      if (!text) throw new Error("model returned empty output");
+      return text;
+    } catch (error) {
+      const reason = error instanceof Error ? error.message : String(error);
+      console.error(`phase ${phase}: model call failed: ${reason}`);
+      return [
+        `_Model unavailable for the ${phase} phase._`,
+        "",
+        `Reason: ${reason}`,
+        "",
+        "Other phases are unaffected. Ask in chat to re-run this phase."
+      ].join("\n");
+    }
   }
 
   /** Exposed so the Workflow can ground its reasoning in saved runbooks. */
@@ -313,6 +361,23 @@ export class IncidentAgent extends AIChatAgent<Env, IncidentState> {
 
     return result.toUIMessageStreamResponse();
   }
+}
+
+/**
+ * Workers AI returns different envelopes depending on the model and input shape.
+ * Llama 3.3 with a `messages` array answers OpenAI-style
+ * (`choices[0].message.content`); some models and the `prompt` input form answer
+ * `{ response }`. Handle both rather than assuming one.
+ */
+export function extractModelText(result: unknown): string {
+  if (typeof result === "string") return result.trim();
+  if (!result || typeof result !== "object") return "";
+  const r = result as {
+    response?: string;
+    choices?: Array<{ message?: { content?: string }; text?: string }>;
+  };
+  const fromChoices = r.choices?.[0]?.message?.content ?? r.choices?.[0]?.text;
+  return (fromChoices ?? r.response ?? "").trim();
 }
 
 // ---------------------------------------------------------------------------
