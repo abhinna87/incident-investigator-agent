@@ -1,0 +1,19 @@
+{
+  "_comment": "Synthetic PagerDuty v3 webhook payload for local testing. No real incident, service, or customer.",
+  "event": {
+    "id": "01DEMO0000000000000000",
+    "event_type": "incident.triggered",
+    "occurred_at": "2026-09-11T02:14:07Z",
+    "data": {
+      "id": "PDEMO01",
+      "type": "incident",
+      "number": 4821,
+      "title": "Tunnel sessions dropping in region alpha",
+      "urgency": "high",
+      "html_url": "https://example.pagerduty.com/incidents/PDEMO01",
+      "service": { "summary": "edge-gateway" },
+      "priority": { "summary": "P1" },
+      "description": "Automated monitor: tunnel_up dropped below 60% of expected peers for 10 minutes in region alpha. Standby path reporting healthy."
+    }
+  }
+}

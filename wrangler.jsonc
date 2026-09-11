@@ -1,0 +1,57 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "incident-investigator-agent",
+  "main": "src/server.ts",
+  "compatibility_date": "2026-06-11",
+  "compatibility_flags": ["nodejs_compat"],
+
+  // Workers AI — the LLM component. `remote: true` lets `wrangler dev` call the
+  // real model instead of a local stub, which matters because phase prompts are
+  // tuned against Llama 3.3's actual behaviour.
+  "ai": { "binding": "AI", "remote": true },
+
+  "assets": {
+    "directory": "./public",
+    "not_found_handling": "single-page-application",
+    // The Worker must see these paths before the static asset handler does,
+    // otherwise webhook POSTs and agent WebSocket upgrades get served the SPA.
+    "run_worker_first": ["/agents/*", "/webhooks/*", "/health"]
+  },
+
+  // Memory/state — one SQLite-backed Durable Object instance per incident.
+  "durable_objects": {
+    "bindings": [
+      {
+        "class_name": "IncidentAgent",
+        "name": "IncidentAgent"
+      }
+    ]
+  },
+
+  // Workflow/coordination — the durable five-phase investigation.
+  "workflows": [
+    {
+      "name": "rca-workflow",
+      "binding": "RCA_WORKFLOW",
+      "class_name": "RcaWorkflow"
+    }
+  ],
+
+  "migrations": [
+    {
+      "new_sqlite_classes": ["IncidentAgent"],
+      "tag": "v1"
+    }
+  ],
+
+  "vars": {
+    // Local dev only. Deploys set the real webhook secrets via
+    // `wrangler secret put`, and this flag is absent in production so unsigned
+    // webhooks are rejected.
+    "ALLOW_UNSIGNED_WEBHOOKS": "true"
+  },
+
+  "observability": {
+    "enabled": true
+  }
+}

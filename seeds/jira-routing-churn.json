@@ -1,0 +1,29 @@
+{
+  "_comment": "Synthetic Jira Cloud issue_created webhook payload for local testing. No real project or customer.",
+  "webhookEvent": "jira:issue_created",
+  "issue": {
+    "key": "OPS-142",
+    "self": "https://example.atlassian.net/rest/api/3/issue/10142",
+    "fields": {
+      "summary": "Routing sessions resetting on a 30s cadence in cluster three",
+      "priority": { "name": "High" },
+      "issuetype": { "name": "Incident" },
+      "project": { "name": "Operations" },
+      "description": {
+        "type": "doc",
+        "version": 1,
+        "content": [
+          {
+            "type": "paragraph",
+            "content": [
+              {
+                "type": "text",
+                "text": "Session reset counter climbing steadily since 01:40Z. Resets appear evenly spaced at roughly the hold-timer interval. Control-plane CPU on the primary node rose from ~40% to >90% shortly before the first reset. Fleet grew ~18% last week with no deploy in the window."
+              }
+            ]
+          }
+        ]
+      }
+    }
+  }
+}
