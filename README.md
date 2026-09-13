@@ -180,7 +180,58 @@ Each returns the incident key and the workflow instance it started:
 }
 ```
 
-Then open the UI and watch the phases land. You can interrupt at any point and
+### Watching it work
+
+`npm run walkthrough` narrates a whole investigation in the terminal — it posts a
+synthetic incident, then prints each phase as it lands with the model's actual
+output:
+
+```sh
+npm run dev                      # terminal 1
+npm run walkthrough              # terminal 2  (PagerDuty seed)
+node scripts/walkthrough.mjs jira
+```
+
+```
+1. A monitoring system raises an incident
+   title:    Tunnel sessions dropping in region alpha
+
+2. It arrives at the agent
+   accepted  incident pd-4821
+   workflow instance wf_CMoDMViT0K9bSnechNyZM
+
+3. Five phases run, each a durable retryable step
+──────────────────────────────────────────────────────────────
+TRIAGE  (1/5, 5s)
+   asks: What is affected, and what is verifiably not?
+
+   Tunnel sessions in region alpha are affected, with a 40% drop in
+   expected peers. The standby path appears unaffected. …
+──────────────────────────────────────────────────────────────
+HYPOTHESIZE  (3/5, 10s)
+   asks: What could be causing this? Ranked, each falsifiable.
+
+   1. BGP session reset issue: … Falsification - No increase in
+      bgp_session_resets during tunnel session drops. …
+──────────────────────────────────────────────────────────────
+
+4. It is all persisted in this incident's own database
+   status:   rca-ready
+   phases:   5/5 done
+   timeline:
+     21:47:28  pagerduty  Incident ingested: Tunnel sessions dropping…
+     21:47:43  agent      Investigation complete; draft RCA ready…
+```
+
+A full run takes about 15 seconds.
+
+Or inspect an incident directly:
+
+```sh
+curl http://localhost:8787/api/incident/pd-4821 | jq
+```
+
+Then open the UI to chat with that incident. You can interrupt at any point and
 tell the agent it is wrong; corrections take precedence over its own prior output.
 
 ### Tests

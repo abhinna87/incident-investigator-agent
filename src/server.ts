@@ -164,6 +164,20 @@ export class IncidentAgent extends AIChatAgent<Env, IncidentState> {
     this.broadcast(JSON.stringify({ type: "phase-progress", progress }));
   }
 
+  /**
+   * Called by the workflow as its final step. Kept separate from
+   * onWorkflowComplete because that callback requires the workflow to report
+   * completion explicitly, so it cannot be relied on to move the incident out of
+   * "investigating".
+   */
+  async completeInvestigation(rca: string) {
+    this.setState({ ...this.state, currentPhase: null, status: "rca-ready" });
+    this.note("agent", "Investigation complete; draft RCA ready for review.");
+    this.broadcast(
+      JSON.stringify({ type: "investigation-complete", rca: rca.slice(0, 400) })
+    );
+  }
+
   async onWorkflowComplete(
     _workflowName: string,
     _instanceId: string,
@@ -433,6 +447,23 @@ export default {
 
     if (url.pathname === "/health") {
       return Response.json({ ok: true, model: MODEL });
+    }
+
+    // Read the current state of one incident: header, phase progress, timeline.
+    // Used by the phase panel in the UI and by scripts/walkthrough.mjs.
+    if (request.method === "GET" && url.pathname.startsWith("/api/incident/")) {
+      const key = url.pathname.slice("/api/incident/".length);
+      if (!key)
+        return Response.json(
+          { error: "missing incident key" },
+          { status: 400 }
+        );
+      const agent = await getAgentByName(env.IncidentAgent, key);
+      return Response.json({
+        incident: await agent.getIncidentState(),
+        phases: await agent.getPhases(),
+        timeline: await agent.getTimeline()
+      });
     }
 
     if (request.method === "POST" && url.pathname.startsWith("/webhooks/")) {

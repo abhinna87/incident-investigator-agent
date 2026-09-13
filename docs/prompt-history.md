@@ -6,10 +6,10 @@ redacted (see `scripts/export-prompt-history.mjs` for the redaction rules).
 
 | | |
 |---|---|
-| Human turns | 14 |
-| Total turns | 196 |
+| Human turns | 16 |
+| Total turns | 216 |
 | Started | 2026-09-09T13:49:51.911Z |
-| Last activity | 2026-09-11T21:15:25.613Z |
+| Last activity | 2026-09-13T21:48:30.325Z |
 | Source | `03f9dad5-4d89-4240-894b-097fd09f11eb.jsonl` (Claude Code JSONL) |
 
 Assistant turns are summarised to the tools they invoked plus their prose, so
@@ -966,5 +966,108 @@ yes
 > **The documented commands work verbatim, zero errors.** `npm run dev` → up on 8787 with the right binding modes, `./seeds/send.sh <file>` with no port arg → incident accepted, all five phases ran clean.
 > 
 > Committing and pushing.
+
+> **Tools:** Bash
+
+> **Tools:** Bash
+
+> **All three commits green in CI.** Both items done.
+> 
+> ## Ready to submit
+> 
+> ```
+> https://github.com/abhinna87/incident-investigator-agent
+> ```
+> 
+> Paste that into Cloudflare's *"Optional Assignment: Please share GitHub repo URL"* field.
+> 
+> | | |
+> |---|---|
+> | CI | ✅ 3/3 commits passing |
+> | Tests | ✅ 17/17 |
+> | Full pipeline vs real Llama 3.3 | ✅ both PagerDuty and Jira paths |
+> | Documented commands verified verbatim | ✅ zero errors |
+> | Prompt history | ✅ 14 prompts, redaction passing |
+> | Leak scan | ✅ no employer/internal content |
+> | Commit author | `Abhi Jain <[EMAIL]>` |
+> 
+> **Both requirements met:** repo URL, and prompt history in `docs/prompt-history.md`.
+> 
+> **All four components present:** Workers AI Llama 3.3 · Workflow + Durable Objects · WebSocket chat UI · per-incident SQLite.
+> 
+> ## Worth knowing for the interview
+> 
+> The three findings in the README are your best talking points, because they only come from actually running the thing:
+> 
+> 1. **`env.AI.run()` fails inside a Workflow step** — remote binding, locally-executing Workflow. Fixed by moving model access to the agent, which is better separation anyway.
+> 2. **Llama 3.3 returns an OpenAI-shaped envelope**, not `{ response }` — …
+
+## 15. Prompt
+
+```text
+help me understand starting in plain english and what is being built?
+```
+
+> ## The problem, plainly
+> 
+> It's 3am. Something breaks. A monitoring system sends an alert. A human gets woken up.
+> 
+> That human then does the same tedious sequence every time: work out what's actually broken and how much of it, pull up some dashboards, form a theory, check the theory, write it all up for the postmortem.
+> 
+> Most of that sequence is *routine*. Not easy — routine. Same steps, different details.
+> 
+> ## What we built
+> 
+> Software that starts doing those steps the moment the alert fires, so when the human opens their laptop there's already a page of work waiting: here's what's broken, here's the evidence I pulled, here are three theories ranked, here's which one the evidence actually supports.
+> 
+> The human's job shifts from "start from nothing at 3am" to "check this work and correct it."
+> 
+> ## Concretely, what happens
+> 
+> 1. An alert fires in PagerDuty (or a ticket is created in Jira).
+> 2. Those systems are configured to notify our thing automatically — no human involved.
+> 3. Our thing wakes up and creates a **dedicated worker for that one incident**. Incident #4821 gets its own worker with its own notebook. Incident #4822 gets a different one. They never mix.
+> 4. That worker runs five steps …
+
+## 16. Prompt
+
+```text
+how do i run and see step by step why is going on, can you record a demo/a walkthrough demo?
+```
+
+> I can't record video — but I should be straight with you about a real gap: **the UI is still the starter's chat window.** I wired the `broadcast()` events for live phases but never built the panel to display them. So right now "step by step" isn't visible in the browser.
+> 
+> Let me fix that properly, plus give you a terminal walkthrough. First let me see what the UI actually renders.
+
+> **Tools:** Bash
+
+> Confirmed — **zero** references to the phase events in the UI. Let me build both: a real API for incident state, a terminal walkthrough you can watch live, and then the UI panel.
+
+> **Tools:** Bash
+
+> Now the walkthrough script — this is what you'll run to watch it happen live.
+
+> **Tools:** Write
+
+> **Tools:** Bash
+
+> Working beautifully. One cosmetic bug — the progress spinner isn't cleared before each phase prints. Let me fix that and see the full run.
+
+> **Tools:** Bash
+
+> Full run: **5/5 phases in 15 seconds**, RCA with all required headings and an honest "What we do not know" section. But the output exposes two real bugs:
+> 
+> 1. **`status: investigating`** — should be `rca-ready`. `onWorkflowComplete` never fired.
+> 2. **Spinner text duplicating** when piped (not a TTY).
+> 
+> Fixing both.
+
+> **Tools:** Bash
+
+> **Tools:** Bash
+
+> Both fixed: **`status: rca-ready`** and a clean timeline (`ingested` → `complete`), whole run in 15 seconds. Let me tidy one last cosmetic line, document it, and commit.
+
+> **Tools:** Bash
 
 > **Tools:** Bash

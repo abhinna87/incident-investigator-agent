@@ -84,6 +84,14 @@ export class RcaWorkflow extends WorkflowEntrypoint<Env, RcaWorkflowParams> {
       });
     }
 
+    // Mark the investigation finished by calling the agent directly rather than
+    // relying on the onWorkflowComplete callback: that callback only fires if the
+    // workflow explicitly reports completion, and without this the incident stayed
+    // at "investigating" forever even after all five phases had landed.
+    await step.do("finish", async () => {
+      await agent.completeInvestigation(previous.rca ?? "");
+    });
+
     return {
       incidentKey: params.incidentKey,
       rca: previous.rca ?? "",
