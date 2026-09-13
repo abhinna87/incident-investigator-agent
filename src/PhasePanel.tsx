@@ -62,6 +62,32 @@ export function PhasePanel({
   const [data, setData] = useState<Payload | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [open, setOpen] = useState<PhaseName | null>(null);
+  const [firing, setFiring] = useState<string | null>(null);
+  const [fireError, setFireError] = useState<string | null>(null);
+
+  /**
+   * Start one of the bundled synthetic incidents. On success the page navigates to
+   * that incident so the chat socket and this panel attach to the same instance.
+   */
+  const fire = useCallback(async (scenario: "pagerduty" | "jira") => {
+    setFiring(scenario);
+    setFireError(null);
+    try {
+      const r = await fetch(`/api/demo?scenario=${scenario}`, {
+        method: "POST"
+      });
+      const body = (await r.json()) as { incident?: string; error?: string };
+      if (!r.ok) throw new Error(body.error ?? `HTTP ${r.status}`);
+      const url = new URL(window.location.href);
+      url.searchParams.set("incident", body.incident ?? scenario);
+      // Reload rather than just setting state: the chat socket is bound to the
+      // incident key at mount, so both halves of the page need to re-attach.
+      window.location.href = url.toString();
+    } catch (e) {
+      setFireError(e instanceof Error ? e.message : String(e));
+      setFiring(null);
+    }
+  }, []);
 
   const load = useCallback(async () => {
     if (!incidentKey) return;
@@ -90,22 +116,6 @@ export function PhasePanel({
     return () => clearInterval(t);
   }, [data, load]);
 
-  if (!incidentKey) {
-    return (
-      <Frame>
-        <p className="text-xs text-kumo-subtle leading-relaxed">
-          No incident selected. Send one in:
-        </p>
-        <pre className="mt-2 text-[11px] font-mono bg-kumo-raised rounded p-2 overflow-auto text-kumo-subtle">
-          npm run walkthrough
-        </pre>
-        <p className="mt-2 text-xs text-kumo-subtle leading-relaxed">
-          Then append <code>?incident=pd-4821</code> to this page&rsquo;s URL.
-        </p>
-      </Frame>
-    );
-  }
-
   if (error && !data) {
     return (
       <Frame>
@@ -116,39 +126,60 @@ export function PhasePanel({
     );
   }
 
-  if (!data) {
+  // Nothing has paged this incident yet — offer to fire a synthetic one so the
+  // page is useful on a fresh clone without hunting for a curl command.
+  const empty =
+    !data ||
+    (!data!.incident.title && data.phases.every((p) => p.status === "pending"));
+
+  if (empty) {
     return (
       <Frame>
-        <p className="text-xs text-kumo-subtle">Loading {incidentKey}…</p>
+        <p className="text-xs text-kumo-subtle leading-relaxed mb-3">
+          Nothing has paged <code className="font-mono">{incidentKey}</code>{" "}
+          yet. This agent is webhook-driven, so fire a synthetic incident to
+          watch the five phases run:
+        </p>
+        <DemoButtons busy={firing} onFire={fire} />
+        {fireError && (
+          <p className="mt-2 text-[11px] text-kumo-danger">{fireError}</p>
+        )}
+        <p className="mt-3 text-[11px] text-kumo-subtle leading-relaxed">
+          Equivalent from a terminal:
+        </p>
+        <pre className="mt-1 text-[10.5px] font-mono bg-kumo-raised rounded p-2 overflow-auto text-kumo-subtle">
+          ./seeds/send.sh pagerduty-tunnel-down.json
+        </pre>
       </Frame>
     );
   }
 
-  const byName = new Map(data.phases.map((p) => [p.name, p]));
-  const doneCount = data.phases.filter((p) => p.status === "done").length;
+  // `empty` above returns when data is null, so it is non-null here.
+  const byName = new Map(data!.phases.map((p) => [p.name, p]));
+  const doneCount = data!.phases.filter((p) => p.status === "done").length;
 
   return (
     <Frame>
       <div className="mb-3">
         <div className="flex items-center gap-2 mb-1">
-          <StatusDot status={data.incident.status} />
+          <StatusDot status={data!.incident.status} />
           <span className="text-xs font-mono text-kumo-subtle">
-            {data.incident.incidentKey}
+            {data!.incident.incidentKey}
           </span>
           <span className="text-[10px] uppercase tracking-wide px-1.5 py-0.5 rounded bg-kumo-raised text-kumo-subtle">
-            {data.incident.source}
+            {data!.incident.source}
           </span>
-          {data.incident.severity && data.incident.severity !== "unknown" && (
+          {data!.incident.severity && data!.incident.severity !== "unknown" && (
             <span className="text-[10px] uppercase tracking-wide px-1.5 py-0.5 rounded bg-kumo-raised text-kumo-subtle">
-              {data.incident.severity}
+              {data!.incident.severity}
             </span>
           )}
         </div>
         <h2 className="text-sm font-semibold text-kumo-default leading-snug">
-          {data.incident.title || "(untitled incident)"}
+          {data!.incident.title || "(untitled incident)"}
         </h2>
         <p className="mt-1 text-[11px] text-kumo-subtle">
-          {doneCount}/5 phases · {data.incident.status}
+          {doneCount}/5 phases · {data!.incident.status}
         </p>
       </div>
 
@@ -204,13 +235,23 @@ export function PhasePanel({
         })}
       </ol>
 
-      {data.timeline.length > 0 && (
+      <div className="mt-4 pt-3 border-t border-kumo-line">
+        <p className="text-[10px] uppercase tracking-wide text-kumo-subtle mb-2">
+          Start another
+        </p>
+        <DemoButtons busy={firing} onFire={fire} />
+        {fireError && (
+          <p className="mt-2 text-[11px] text-kumo-danger">{fireError}</p>
+        )}
+      </div>
+
+      {data!.timeline.length > 0 && (
         <div className="mt-4 pt-3 border-t border-kumo-line">
           <p className="text-[10px] uppercase tracking-wide text-kumo-subtle mb-1.5">
             Timeline
           </p>
           <ul className="space-y-1">
-            {data.timeline
+            {data!.timeline
               .slice()
               .reverse()
               .map((t, i) => (
@@ -225,6 +266,34 @@ export function PhasePanel({
         </div>
       )}
     </Frame>
+  );
+}
+
+function DemoButtons({
+  busy,
+  onFire
+}: {
+  busy: string | null;
+  onFire: (scenario: "pagerduty" | "jira") => void;
+}) {
+  const scenarios: Array<{ id: "pagerduty" | "jira"; label: string }> = [
+    { id: "pagerduty", label: "Tunnel down (PagerDuty)" },
+    { id: "jira", label: "Routing churn (Jira)" }
+  ];
+  return (
+    <div className="flex flex-col gap-1.5">
+      {scenarios.map((sc) => (
+        <button
+          key={sc.id}
+          type="button"
+          disabled={busy !== null}
+          onClick={() => onFire(sc.id)}
+          className="text-left text-xs px-2.5 py-1.5 rounded ring-1 ring-kumo-line hover:bg-kumo-raised disabled:opacity-50 disabled:cursor-wait transition-colors text-kumo-default"
+        >
+          {busy === sc.id ? "Starting…" : sc.label}
+        </button>
+      ))}
+    </div>
   );
 }
 

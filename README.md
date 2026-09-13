@@ -237,7 +237,9 @@ curl http://localhost:8787/api/incident/pd-4821 | jq
 
 ### The UI
 
-Open <http://localhost:8787/?incident=pd-4821>. The left panel is the live
+Open <http://localhost:8787>. Nothing has paged the agent on a fresh clone, so the
+panel offers two synthetic incidents — click **Tunnel down (PagerDuty)** or
+**Routing churn (Jira)** and watch the five phases run. No terminal needed. The left panel is the live
 investigation — the incident header, the five phases filling in as they land, and
 the timeline. Click any completed phase to read the model's full output. The right
 side is chat with that same incident: you can interrupt mid-investigation and tell
@@ -250,6 +252,10 @@ or opening the UI an hour after the page fired, would otherwise show nothing.
 
 The `?incident=` parameter selects which agent instance the page attaches to, so two
 tabs can watch two different incidents at once.
+
+`POST /api/demo?scenario=pagerduty|jira` is what those buttons call. It is
+restricted to the two bundled seeds on purpose — it must not become a way to inject
+arbitrary incidents into a deployed instance.
 
 ### Tests
 

@@ -30,7 +30,7 @@ function slug(value: string, fallback: string): string {
  * optional because this is untrusted external input — a payload shape change
  * upstream should degrade to a missing field, not throw.
  */
-interface PagerDutyPayload {
+export interface PagerDutyPayload {
   event?: {
     event_type?: string;
     data?: {
@@ -84,14 +84,16 @@ export function normalizePagerDuty(
 }
 
 /** Jira Cloud sends rich text as an Atlassian Document Format tree. */
-interface AdfNode {
+export interface AdfNode {
   type?: string;
   text?: string;
   content?: AdfNode[];
+  /** Present on the document root that Jira Cloud sends. */
+  version?: number;
 }
 
 /** The subset of a Jira webhook envelope that we read. */
-interface JiraPayload {
+export interface JiraPayload {
   webhookEvent?: string;
   issue?: {
     key?: string;

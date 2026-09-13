@@ -13,9 +13,11 @@ import { z } from "zod";
 import { MAX_PHASE_TOKENS, MODEL, SYSTEM_PROMPT } from "./prompts";
 import { verifyWebhook } from "./webhooks/verify";
 import {
-  normalizePagerDuty,
   normalizeJira,
-  type IncidentInput
+  normalizePagerDuty,
+  type IncidentInput,
+  type JiraPayload,
+  type PagerDutyPayload
 } from "./webhooks/normalize";
 import type { PhaseName, PhaseRecord, IncidentState } from "./types";
 import { PHASES } from "./types";
@@ -433,6 +435,68 @@ function mockLogs(pattern: string, window: string) {
   };
 }
 
+/**
+ * Synthetic incidents for the demo endpoint, inlined rather than read from
+ * seeds/*.json because a deployed Worker has no filesystem. They mirror those
+ * files; both are fictional and contain no real service, customer or ticket.
+ */
+const DEMO_SEEDS: Record<
+  string,
+  | { source: "pagerduty"; payload: PagerDutyPayload }
+  | { source: "jira"; payload: JiraPayload }
+> = {
+  pagerduty: {
+    source: "pagerduty",
+    payload: {
+      event: {
+        event_type: "incident.triggered",
+        data: {
+          id: "PDEMO01",
+          number: 4821,
+          title: "Tunnel sessions dropping in region alpha",
+          urgency: "high",
+          html_url: "https://example.pagerduty.com/incidents/PDEMO01",
+          service: { summary: "edge-gateway" },
+          priority: { summary: "P1" },
+          description:
+            "Automated monitor: tunnel_up dropped below 60% of expected peers for 10 minutes in region alpha. Standby path reporting healthy."
+        }
+      }
+    }
+  },
+  jira: {
+    source: "jira",
+    payload: {
+      webhookEvent: "jira:issue_created",
+      issue: {
+        key: "OPS-142",
+        fields: {
+          summary:
+            "Routing sessions resetting on a 30s cadence in cluster three",
+          priority: { name: "High" },
+          issuetype: { name: "Incident" },
+          project: { name: "Operations" },
+          description: {
+            type: "doc",
+            version: 1,
+            content: [
+              {
+                type: "paragraph",
+                content: [
+                  {
+                    type: "text",
+                    text: "Session reset counter climbing steadily since 01:40Z. Resets appear evenly spaced at roughly the hold-timer interval. Control-plane CPU on the primary node rose from ~40% to >90% shortly before the first reset. Fleet grew ~18% last week with no deploy in the window."
+                  }
+                ]
+              }
+            ]
+          }
+        }
+      }
+    }
+  }
+};
+
 // ---------------------------------------------------------------------------
 // Worker entrypoint. Webhooks are a first-class channel: PagerDuty and Jira POST
 // here, we verify the signature, normalise the payload, then hand it to the
@@ -447,6 +511,40 @@ export default {
 
     if (url.pathname === "/health") {
       return Response.json({ ok: true, model: MODEL });
+    }
+
+    // Fire one of the bundled synthetic incidents, so the UI can demo itself
+    // without the visitor having to find a curl command. Deliberately restricted
+    // to the two known seeds — this must not become a way to inject arbitrary
+    // incidents into a deployed instance.
+    if (request.method === "POST" && url.pathname === "/api/demo") {
+      const which = url.searchParams.get("scenario") ?? "pagerduty";
+      const seed = DEMO_SEEDS[which];
+      if (!seed) {
+        return Response.json(
+          {
+            error: `unknown scenario; choose one of ${Object.keys(DEMO_SEEDS).join(", ")}`
+          },
+          { status: 400 }
+        );
+      }
+      const incident =
+        seed.source === "pagerduty"
+          ? normalizePagerDuty(seed.payload)
+          : normalizeJira(seed.payload);
+      if (!incident) {
+        return Response.json(
+          { error: "seed failed to normalise" },
+          { status: 500 }
+        );
+      }
+      const agent = await getAgentByName(env.IncidentAgent, incident.key);
+      const started = await agent.ingest(incident);
+      return Response.json({
+        ...started,
+        incident: incident.key,
+        scenario: which
+      });
     }
 
     // Read the current state of one incident: header, phase progress, timeline.

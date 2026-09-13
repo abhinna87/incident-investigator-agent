@@ -6,10 +6,10 @@ redacted (see `scripts/export-prompt-history.mjs` for the redaction rules).
 
 | | |
 |---|---|
-| Human turns | 18 |
-| Total turns | 252 |
+| Human turns | 20 |
+| Total turns | 277 |
 | Started | 2026-09-09T13:49:51.911Z |
-| Last activity | 2026-09-13T22:01:30.377Z |
+| Last activity | 2026-09-13T22:14:16.406Z |
 | Source | `03f9dad5-4d89-4240-894b-097fd09f11eb.jsonl` (Claude Code JSONL) |
 
 Assistant turns are summarised to the tools they invoked plus their prose, so
@@ -1186,5 +1186,129 @@ how do i run and see step by step why is going on, can you record a demo/a walkt
 > **Connected** (green). It was purely a screenshot timing artifact. Committing.
 
 > **Tools:** Bash
+
+> **Tools:** Bash
+
+> Fixed. **"Not found" was real** — `wrangler dev` only serves the assets folder, which had nothing but a favicon. The UI is built by Vite, and nothing was building it.
+> 
+> ## Now working
+> 
+> ```
+> cd ~/incident-investigator-agent
+> npm run dev
+> ```
+> Then open **http://localhost:8787/?incident=pd-4821**
+> 
+> `npm run dev` now builds the UI *and* serves it through the generated wrangler config, so the UI and API share one port with no subdomain needed.
+> 
+> ## What the page shows
+> 
+> **Left panel** — the live investigation:
+> - Incident header with source and severity (`pd-4821 · PAGERDUTY · P1`)
+> - All five phases with status marks, filling in as they land
+> - The question each phase asks, so it's self-explaining
+> - **Click any completed phase** to read the model's full output
+> - Timeline of what happened when
+> 
+> **Right side** — chat bound to that same incident, so you can interrupt and correct it mid-investigation.
+> 
+> `?incident=` picks which incident the page attaches to, so two tabs can watch two incidents.
+> 
+> ## Also cleaned up
+> 
+> The starter's leftovers were still there: title said "Agent Starter", and the suggested prompts were *"What's the weather in Paris?"* and *"Calculate 5000 * 3"*. Now they're things an on-c …
+
+## 19. Prompt
+
+```text
+what should i run in browser to see step by step?
+```
+
+> Three things, in this order:
+> 
+> **1. Terminal — start it**
+> ```
+> cd ~/incident-investigator-agent
+> npm run dev
+> ```
+> Wait for `Ready on http://localhost:8787`. First run takes ~20s (it builds the UI).
+> 
+> **2. Second terminal — create an incident**
+> ```
+> cd ~/incident-investigator-agent
+> ./seeds/send.sh pagerduty-tunnel-down.json
+> ```
+> This is the part that matters: **the browser has nothing to show until an incident exists.** The agent is webhook-driven, so something has to page it first.
+> 
+> **3. Browser — open this exact URL**
+> ```
+> http://localhost:8787/?incident=pd-4821
+> ```
+> 
+> Open it *immediately* after step 2 and you'll watch the five phases turn green one at a time over ~15 seconds. Left panel, top to bottom: triage → gather → hypothesize → verify → rca.
+> 
+> Then **click any green phase** to expand and read what the model actually wrote.
+> 
+> ---
+> 
+> For the other scenario:
+> ```
+> ./seeds/send.sh jira-routing-churn.json
+> ```
+> → `http://localhost:8787/?incident=ops-142`
+> 
+> ---
+> 
+> ## Honest UX gap
+> 
+> Needing a terminal command to make the browser useful is clunky. A **"Fire a demo incident"** button in the UI would remove step 2 entirely — click it, watch the phases run, no terminal.
+> 
+> Want me to add that? ~15 minutes, …
+
+## 20. Prompt
+
+```text
+yes
+```
+
+> **Tools:** Bash
+
+> **Tools:** Bash
+
+> **Tools:** Bash
+
+> The formatter reflowed the type before my replacement matched. Fixing directly.
+
+> **Tools:** Bash
+
+> **Tools:** Bash
+
+> Types are exported; the import just wasn't updated (formatter had already reflowed it). Fixing.
+
+> **Tools:** Bash
+
+> Real ADF field I'd omitted — Jira sends `version` on the doc root. Adding it to the type rather than deleting it from the seed.
+
+> **Tools:** Bash
+
+> Gate green. Now the button in the panel.
+
+> **Tools:** Bash
+
+> **Tools:** Bash
+
+> Now the real test: fresh state, open the browser with no incident, and confirm the button works.
+
+> **Tools:** Bash
+
+> **Tools:** Read
+
+> Exactly right — empty state explains itself and offers both scenarios. Endpoint returns `ok: true`. Let me verify the loaded state and the "start another" control.
+
+> **Tools:** Bash
+
+> **Tools:** Read
+
+> Complete and working. Documenting and committing.
 
 > **Tools:** Bash
