@@ -82,8 +82,24 @@ function rule(char = "─") {
   console.log(dim(char.repeat(74)));
 }
 
-function wrap(text, indent = "   ", width = 70) {
+/**
+ * Model output is meant to be plain text but occasionally arrives with markdown
+ * emphasis, which shows up as literal asterisks in a terminal. Mirrors
+ * src/markdown.ts.
+ */
+function stripMarkdown(text) {
   return String(text ?? "")
+    .replace(/\*\*([^*]+)\*\*/g, "$1")
+    .replace(/__([^_]+)__/g, "$1")
+    .replace(/^#{1,6}\s+/gm, "")
+    .replace(/`([^`]+)`/g, "$1")
+    .replace(/^\s*[*•]\s+/gm, "- ")
+    .replace(/\*\*/g, "")
+    .trim();
+}
+
+function wrap(text, indent = "   ", width = 70) {
+  return stripMarkdown(text)
     .split("\n")
     .flatMap((line) => {
       if (line.length <= width) return [line];

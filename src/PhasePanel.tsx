@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 
+import { stripMarkdown } from "./markdown";
+
 /**
  * Live view of one incident's investigation.
  *
@@ -230,7 +232,7 @@ export function PhasePanel({
 
               {isOpen && p?.output && (
                 <pre className="ml-6 mt-1 mb-2 text-[11px] font-mono whitespace-pre-wrap bg-kumo-raised rounded p-2 max-h-72 overflow-auto text-kumo-default">
-                  {p.output}
+                  {stripMarkdown(p.output)}
                 </pre>
               )}
             </li>

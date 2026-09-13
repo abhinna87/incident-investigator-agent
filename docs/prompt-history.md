@@ -6,10 +6,10 @@ redacted (see `scripts/export-prompt-history.mjs` for the redaction rules).
 
 | | |
 |---|---|
-| Human turns | 21 |
-| Total turns | 309 |
+| Human turns | 22 |
+| Total turns | 322 |
 | Started | 2026-09-09T13:49:51.911Z |
-| Last activity | 2026-09-13T22:33:18.191Z |
+| Last activity | 2026-09-13T22:43:36.344Z |
 | Source | `03f9dad5-4d89-4240-894b-097fd09f11eb.jsonl` (Claude Code JSONL) |
 
 Assistant turns are summarised to the tools they invoked plus their prose, so
@@ -1420,6 +1420,56 @@ hmm, can you build a story around co-op issue.. it is somewhere on my laptop
 > It listed 88M route-export evaluations, `suppression_profile_applied: 0`, and p99 > hold timer as three *separate facts*. It never joined them into the actual chain: quadratic export cost → work exceeds the 30s hold timer → teardown → reconnect recreates the load → self-sustaining loop, and the suppression profile is the fix.
 > 
 > That's the honest finding: **the structure prevents confident wrongness, but it doesn't manufacture insight.** An honest "inconclusive, here's what to check next" is the correct failure mode for a 3am tool — but a human expert reaches the answ …
+
+> **Tools:** Bash
+
+> **Tools:** Bash
+
+> Built and pushed. Third scenario is live: **"Reset loop — version red herring"** in the UI, or `npm run walkthrough reset-loop`.
+> 
+> ## On sanitization — what I kept vs. changed
+> 
+> Nothing traceable to your employer or the customer went in. Changed: customer name → `northwind-retail`, ticket ID → `PDEMO03`, `2,240` sites → `~2,100`, real version numbers → `4.1.0`/`4.2.0`, internal optimization names → "route-suppression profile", the daemon → "route-exchange". No GoBGP, no AutoVPN, no internal codenames.
+> 
+> What I kept is the *reasoning shape*, which is the valuable part and isn't proprietary: quadratic per-peer work, reader-starvation under a shared lock (public Go semantics), a fixed hold-timer cliff, and the version being a margin rather than a mechanism.
+> 
+> ## The result — and it's the best finding in the project
+> 
+> **The guardrails worked:**
+> - **Zero mentions of the version.** Not `4.2.0`, not "upgrade", not "rollback". The most tempting correlation available was declined.
+> - **Verify rejected the shallow answer**: *"'Hold timer expiration' is contradicted by the evidence… p99 (61s) exceeds the hold timer (30s), indicating other factors at play."*
+> - **The RCA said "inconclusive"** instead …
+
+## 22. Prompt
+
+```text
+"**Candidate causes:**
+1. **Route-exchange daemon bug**: Mechanism: Daemon malfunction causes reconnect loop. Evidence: Reconnect loop issue started 8 days after daemon upgrade to 4.2.0. Falsification: No issues after rolling back all nodes to 4.1.0.
+2. **Insufficient suppression profile**: Mechanism: Lack of suppression profile causes excessive route export evaluations. Evidence: `suppression_profile_applied{tenant=northwind}: 0`. Falsification: Issue resolves after applying suppression profile.
+3. **Edge site connection overload**: Mechanism: Increased edge site " why i see double stars everyhwere?
+```
+
+> Same bug class as the resume PDF earlier — the model emits markdown `**bold**`, and I'm rendering it in a `<pre>` (and in the terminal), so you see literal asterisks. Fixing at both ends: tell the model to stop, and strip it on display so already-stored output reads cleanly too.
+
+> **Tools:** Bash
+
+> Let me add a test for the stripper, then verify against a real run.
+
+> **Tools:** Bash
+
+> 24/24 passing. Now verify against a real run.
+
+> **Tools:** Bash
+
+> Zero asterisks — fixed. But this run tells me something important: **it led with the version hypothesis this time.** My README claims "it never blamed the version" based on a single run. Let me check what verify did, then correct that overclaim.
+
+> **Tools:** Bash
+
+> Much better — and it corrects my overclaim. **Verify caught the bait when hypothesize took it:**
+> 
+> > *"The leading hypothesis that the reconnect loop is caused by daemon version 4.2.0 **is contradicted by the evidence**… The loop forming 8 days after the upgrade… not sufficient to support this cause."*
+> 
+> So the honest result across two runs is stronger than what I wrote. Let me fix the README — I'd generalized from n=1.
 
 > **Tools:** Bash
 

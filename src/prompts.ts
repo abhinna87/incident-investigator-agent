@@ -19,6 +19,9 @@ Style rules:
 - Quantify when you can. If you cannot, say what measurement is missing.
 - Never present a guess as a finding. Label confidence explicitly.
 - If the evidence does not support a conclusion, say so and name the next check.
+- Plain text only. No markdown: no **, no __, no backticks, no # headings, no
+  bullet characters. Output is shown in a monospace pane, so ** renders as two
+  literal asterisks rather than bold. Use plain numbered or dashed lines.
 `.trim();
 
 export function SYSTEM_PROMPT(args: {
@@ -128,7 +131,8 @@ Evidence:   ${c.previous.gather ?? "(none)"}
 Hypotheses: ${c.previous.hypothesize ?? "(none)"}
 Verification: ${c.previous.verify ?? "(none)"}
 
-Use these headings exactly: Summary, Impact, What we know, What we do not know,
+Use these headings exactly, each on its own line as plain text with no "#"
+and no asterisks: Summary, Impact, What we know, What we do not know,
 Leading cause, Next actions. Keep it under 300 words. Where the investigation is
 inconclusive, put it under "What we do not know" rather than softening the
 leading cause.

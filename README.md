@@ -125,26 +125,47 @@ the route-suppression profile applied. The real shape is per-reconnect work that
 grows faster than linearly with peer count, crossing a fixed 30-second hold timer,
 after which each reconnect recreates the load that caused the last timeout.
 
-What Llama 3.3 did with it:
+What Llama 3.3 did with it, across repeated runs:
 
-- **It never blamed the version.** Zero references to the upgrade or the rollback
-  anywhere in the output. The most tempting correlation available was declined.
-- **The verify phase rejected the shallow answer**: _"'Hold timer expiration' is
-  contradicted by the evidence… p99 (61s) exceeds the hold timer (30s), indicating
-  other factors at play."_ It refused to accept the timeout as the cause.
-- **The RCA declared itself inconclusive** rather than inventing a cause, and put
-  the real gaps under _What we do not know_.
-- **But it did not assemble the answer.** It surfaced 88M route-export evaluations,
+The hypothesize phase is **not** consistent. On one run it never mentioned the
+upgrade at all; on the next it led with _"daemon version 4.2.0 introduces a bug"_.
+Same prompt, same evidence — a mid-size model will sometimes take the most
+available correlation.
+
+The verify phase caught it **both times**:
+
+- When hypothesize avoided the version, verify still rejected the shallow reading:
+  _"'Hold timer expiration' is contradicted by the evidence… p99 (61s) exceeds the
+  hold timer (30s), indicating other factors at play."_
+- When hypothesize did lead with the version, verify rejected that directly: _"The
+  leading hypothesis that the reconnect loop is caused by daemon version 4.2.0 is
+  contradicted by the evidence… The loop forming 8 days after the upgrade… not
+  sufficient to support this cause."_
+
+That is the actual argument for a separate, adversarial verification step. A single
+prompt asked to both generate and assess a hypothesis tends to ratify itself. Split
+into two phases with the second explicitly told it may not hedge, the wrong answer
+gets caught even when the first phase produces it.
+
+Where it still falls short, stated plainly:
+
+- **It does not assemble the mechanism.** It surfaces 88M route-export evaluations,
   `suppression_profile_applied: 0`, and p99-over-hold-timer as three separate facts
-  and never joined them into one causal chain. A human with that evidence gets
-  there; this model listed it.
+  and never joins them into one causal chain. A human with that evidence gets there.
+- **The RCA can promote a hypothesis verify never validated.** On the second run,
+  after correctly rejecting the version, the writeup settled on "network traffic
+  patterns or packet loss" — for which there is no evidence in the signals at all.
+  The RCA phase reads the earlier phases but is not currently forced to carry
+  verify's verdict forward.
 
-So the honest read: the phase structure reliably prevents the confident-but-wrong
-answer, and an honest "inconclusive, check this next" is the right failure mode for
-something waking a human at 03:00. It does not manufacture insight. If I were
-taking this further, the next move would be a synthesis step that is explicitly
-asked to connect prior findings into a mechanism, and a stronger model behind just
-that step.
+So: the structure reliably prevents the confident-wrong answer and produces an
+honest "inconclusive, check this next", which is the right failure mode for
+something waking a human at 03:00. It does not manufacture insight, and the final
+writeup needs a tighter contract with the verification step.
+
+If I were taking this further: make the RCA phase quote verify's verdict verbatim
+rather than re-deciding, add a synthesis step explicitly asked to connect prior
+findings into a mechanism, and put a stronger model behind that one step.
 
 ## Agent Skills
 
