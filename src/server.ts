@@ -132,7 +132,8 @@ export class IncidentAgent extends AIChatAgent<Env, IncidentState> {
       description: input.description,
       severity: input.severity,
       source: input.source,
-      agentName: input.key
+      agentName: input.key,
+      scenario: input.scenario
     });
 
     this.setState({ ...this.state, workflowInstanceId: instanceId });
@@ -442,8 +443,8 @@ function mockLogs(pattern: string, window: string) {
  */
 const DEMO_SEEDS: Record<
   string,
-  | { source: "pagerduty"; payload: PagerDutyPayload }
-  | { source: "jira"; payload: JiraPayload }
+  | { source: "pagerduty"; payload: PagerDutyPayload; scenario?: string }
+  | { source: "jira"; payload: JiraPayload; scenario?: string }
 > = {
   pagerduty: {
     source: "pagerduty",
@@ -460,6 +461,26 @@ const DEMO_SEEDS: Record<
           priority: { summary: "P1" },
           description:
             "Automated monitor: tunnel_up dropped below 60% of expected peers for 10 minutes in region alpha. Standby path reporting healthy."
+        }
+      }
+    }
+  },
+  "reset-loop": {
+    source: "pagerduty",
+    scenario: "reset-loop",
+    payload: {
+      event: {
+        event_type: "incident.triggered",
+        data: {
+          id: "PDEMO03",
+          number: 5177,
+          title: "Routing peers stuck in a reconnect loop for one large tenant",
+          urgency: "high",
+          html_url: "https://example.pagerduty.com/incidents/PDEMO03",
+          service: { summary: "route-exchange" },
+          priority: { summary: "P1" },
+          description:
+            "Tenant northwind-retail (approx 2,100 edge sites) has peers cycling Established -> Idle -> Established continuously since 01:40Z. Sessions come up, then drop before converging, then reconnect. No other tenant on the same fleet is affected.\n\nContext from the acknowledging engineer:\n- The route-exchange daemon was upgraded 4.1.0 -> 4.2.0 on this fleet nine days ago. 4.2.0 is the obvious suspect.\n- However this tenant ran 4.2.0 without incident for eight days, and their site count grew roughly 20 percent over the last week as a rollout completed.\n- Restarting the daemon clears the loop for about 40 seconds, then it re-forms.\n- A rollback to 4.1.0 on one node did not stop the loop; it took longer to appear.\n- This tenant is the only one without the route-suppression profile applied, so their edges receive per-site prefixes rather than a default route. Product asked for that visibility at onboarding.\n- Customer edges use a 30 second hold timer, not configurable from our side."
         }
       }
     }
@@ -539,7 +560,12 @@ export default {
         );
       }
       const agent = await getAgentByName(env.IncidentAgent, incident.key);
-      const started = await agent.ingest(incident);
+      // Carry the scenario hint so the workflow can pick the matching synthetic
+      // signal set for this demo.
+      const started = await agent.ingest({
+        ...incident,
+        scenario: seed.scenario
+      });
       return Response.json({
         ...started,
         incident: incident.key,

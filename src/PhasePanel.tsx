@@ -11,6 +11,9 @@ import { useCallback, useEffect, useState } from "react";
  */
 
 const PHASES = ["triage", "gather", "hypothesize", "verify", "rca"] as const;
+
+/** The bundled demo scenarios that POST /api/demo accepts. */
+type Scenario = "pagerduty" | "jira" | "reset-loop";
 type PhaseName = (typeof PHASES)[number];
 
 const PHASE_ASKS: Record<PhaseName, string> = {
@@ -69,7 +72,7 @@ export function PhasePanel({
    * Start one of the bundled synthetic incidents. On success the page navigates to
    * that incident so the chat socket and this panel attach to the same instance.
    */
-  const fire = useCallback(async (scenario: "pagerduty" | "jira") => {
+  const fire = useCallback(async (scenario: Scenario) => {
     setFiring(scenario);
     setFireError(null);
     try {
@@ -274,11 +277,12 @@ function DemoButtons({
   onFire
 }: {
   busy: string | null;
-  onFire: (scenario: "pagerduty" | "jira") => void;
+  onFire: (scenario: Scenario) => void;
 }) {
-  const scenarios: Array<{ id: "pagerduty" | "jira"; label: string }> = [
+  const scenarios: Array<{ id: Scenario; label: string }> = [
     { id: "pagerduty", label: "Tunnel down (PagerDuty)" },
-    { id: "jira", label: "Routing churn (Jira)" }
+    { id: "jira", label: "Routing churn (Jira)" },
+    { id: "reset-loop", label: "Reset loop — version red herring" }
   ];
   return (
     <div className="flex flex-col gap-1.5">

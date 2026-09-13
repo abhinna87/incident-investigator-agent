@@ -6,10 +6,10 @@ redacted (see `scripts/export-prompt-history.mjs` for the redaction rules).
 
 | | |
 |---|---|
-| Human turns | 20 |
-| Total turns | 277 |
+| Human turns | 21 |
+| Total turns | 309 |
 | Started | 2026-09-09T13:49:51.911Z |
-| Last activity | 2026-09-13T22:14:16.406Z |
+| Last activity | 2026-09-13T22:33:18.191Z |
 | Source | `03f9dad5-4d89-4240-894b-097fd09f11eb.jsonl` (Claude Code JSONL) |
 
 Assistant turns are summarised to the tools they invoked plus their prose, so
@@ -1310,5 +1310,117 @@ yes
 > **Tools:** Read
 
 > Complete and working. Documenting and committing.
+
+> **Tools:** Bash
+
+> Done. **Now it's two steps, no terminal command needed.**
+> 
+> ## What to run
+> 
+> ```
+> cd ~/incident-investigator-agent
+> npm run dev
+> ```
+> 
+> Open **http://localhost:8787** — that's it.
+> 
+> The panel sees nothing has paged the agent yet and offers two buttons:
+> - **Tunnel down (PagerDuty)**
+> - **Routing churn (Jira)**
+> 
+> Click one. It fires the incident, navigates to it, and you watch the five phases turn green over ~15 seconds. **Click any green phase** to read what the model wrote.
+> 
+> Once loaded, the same buttons reappear as **"Start another"** so you can run the other scenario without touching the URL.
+> 
+> ## Verified from wiped state
+> 
+> | | |
+> |---|---|
+> | Empty panel offers both scenarios | ✅ |
+> | `POST /api/demo` returns `ok` + workflow instance | ✅ |
+> | Loaded panel: 5/5 green, `rca-ready`, timeline | ✅ |
+> | WebSocket `Connected` | ✅ |
+> | CI / tests | ✅ 17/17 |
+> 
+> ## Two notes on how I built it
+> 
+> **Security:** `/api/demo` only accepts the two known scenario names, and the payloads are inlined constants rather than anything from the request. A demo trigger that accepted arbitrary incident data would be a hole in a deployed instance. (It also has to be inlined — a deployed Worker has no filesystem to read `seed …
+
+## 21. Prompt
+
+```text
+hmm, can you build a story around co-op issue.. it is somewhere on my laptop
+```
+
+> Let me read it first — but flagging up front: that's a real customer incident with a real ticket ID, so nothing identifying can go in a public repo. What I *can* use is the technical *shape*, fictionalized.
+
+> **Tools:** Bash
+
+> That's a genuinely excellent RCA — and it's the *perfect* test for this agent, because **the obvious answer is wrong**. A version changed right before the incident (tempting), but the real cause is architectural + scale. That's exactly what the verify phase exists to catch.
+> 
+> Let me build it as a third scenario, fully fictionalized.
+
+> **Tools:** Write
+
+> Now a skill encoding how to reason about this class of failure, and signals where the version correlation is tempting but the scale correlation is real.
+
+> **Tools:** Write
+
+> Now signals shaped so the version correlation is tempting but the scale correlation is the real one — and wire the scenario in.
+
+> **Tools:** Bash
+
+> **Tools:** Bash
+
+> Now the real test — does the agent resist the version red herring?
+
+> **Tools:** Bash
+
+> The output cites the *default* signals (`control_plane_cpu`, `x47`) — my reset-loop signals never reached the model. The scenario isn't threading through. Let me trace it.
+
+> **Tools:** Bash
+
+> **Tools:** Bash
+
+> Plumbing looks right. Let me check whether the build actually contains my new signals.
+
+> **Tools:** Bash
+
+> Build contains them, so `params.scenario` must be arriving undefined. Let me log it rather than keep guessing.
+
+> **Tools:** Bash
+
+> **Tools:** Bash
+
+> Found it — my edit never applied; line 563 is still the bare `agent.ingest(incident)`. The earlier "success" message was misleading.
+
+> **Tools:** Bash
+
+> The webhook path (line 624) also needs it, so the seed file works too.
+
+> **Tools:** Bash
+
+> Now the real test.
+
+> **Tools:** Bash
+
+> Now it's reasoning on the real signals — and the result is genuinely interesting. Let me see the RCA.
+
+> **Tools:** Bash
+
+> This is the most interesting result of the whole project, and it cuts both ways.
+> 
+> **What worked — the guardrails did their job:**
+> - **Zero mentions of the version.** No `4.2.0`, no "upgrade", no "rollback". The red herring was completely avoided.
+> - **Verify rejected the shallow answer**: *"'Hold timer expiration' is contradicted by the evidence… p99 (61s) exceeds the hold timer (30s), indicating other factors at play."*
+> - **The RCA declared itself inconclusive** rather than inventing a confident cause, and listed real gaps under *What we do not know*.
+> 
+> **What didn't — it had every ingredient and never assembled them:**
+> 
+> It listed 88M route-export evaluations, `suppression_profile_applied: 0`, and p99 > hold timer as three *separate facts*. It never joined them into the actual chain: quadratic export cost → work exceeds the 30s hold timer → teardown → reconnect recreates the load → self-sustaining loop, and the suppression profile is the fix.
+> 
+> That's the honest finding: **the structure prevents confident wrongness, but it doesn't manufacture insight.** An honest "inconclusive, here's what to check next" is the correct failure mode for a 3am tool — but a human expert reaches the answ …
+
+> **Tools:** Bash
 
 > **Tools:** Bash

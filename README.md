@@ -113,10 +113,43 @@ more than a chat scrollback.
 
 `Verify` exists because it is the phase an LLM most wants to skip.
 
+## Does the structure actually help? One adversarial scenario
+
+The third bundled scenario exists to test the design rather than demonstrate it.
+
+A tenant's routing peers are stuck in a reconnect loop. A version upgrade landed
+nine days earlier, which is the obvious suspect and is **wrong**. The evidence says
+otherwise: the tenant ran that version fine for eight days, a rollback did not stop
+the loop, the fleet grew 20% in the same window, and this is the only tenant without
+the route-suppression profile applied. The real shape is per-reconnect work that
+grows faster than linearly with peer count, crossing a fixed 30-second hold timer,
+after which each reconnect recreates the load that caused the last timeout.
+
+What Llama 3.3 did with it:
+
+- **It never blamed the version.** Zero references to the upgrade or the rollback
+  anywhere in the output. The most tempting correlation available was declined.
+- **The verify phase rejected the shallow answer**: _"'Hold timer expiration' is
+  contradicted by the evidence… p99 (61s) exceeds the hold timer (30s), indicating
+  other factors at play."_ It refused to accept the timeout as the cause.
+- **The RCA declared itself inconclusive** rather than inventing a cause, and put
+  the real gaps under _What we do not know_.
+- **But it did not assemble the answer.** It surfaced 88M route-export evaluations,
+  `suppression_profile_applied: 0`, and p99-over-hold-timer as three separate facts
+  and never joined them into one causal chain. A human with that evidence gets
+  there; this model listed it.
+
+So the honest read: the phase structure reliably prevents the confident-but-wrong
+answer, and an honest "inconclusive, check this next" is the right failure mode for
+something waking a human at 03:00. It does not manufacture insight. If I were
+taking this further, the next move would be a synthesis step that is explicitly
+asked to connect prior findings into a mechanism, and a stronger model behind just
+that step.
+
 ## Agent Skills
 
 `src/skills/*/SKILL.md` holds the investigation playbooks — `triage`,
-`tunnel-down`, `routing-instability` — as on-demand instructions in Cloudflare's
+`tunnel-down`, `routing-instability`, `reset-loop` — as on-demand instructions in Cloudflare's
 Agent Skills layout. Each encodes ordering (check reachability before protocol
 state), scoping questions (one peer or many), and the traps that produce wrong
 conclusions (a tunnel flapping faster than the scrape interval reads as healthy;
@@ -171,6 +204,7 @@ Send a synthetic incident:
 ```sh
 ./seeds/send.sh pagerduty-tunnel-down.json
 ./seeds/send.sh jira-routing-churn.json
+./seeds/send.sh pagerduty-reset-loop.json     # the adversarial one
 ```
 
 Each returns the incident key and the workflow instance it started:

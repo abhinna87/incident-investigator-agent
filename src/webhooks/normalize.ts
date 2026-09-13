@@ -13,6 +13,22 @@ export interface IncidentInput {
   severity: string;
   source: IncidentSource;
   url?: string;
+  /** Demo-only hint selecting a synthetic signal set. */
+  scenario?: string;
+}
+
+/**
+ * Pick a synthetic signal set for the bundled demo incidents.
+ *
+ * Only exists so the demo scenarios are self-describing: the same seed produces
+ * the same signals whether it arrives from the UI button or from curl. A real
+ * deployment reads signals from an observability backend and ignores this.
+ */
+function inferScenario(...text: Array<string | undefined>): string | undefined {
+  const blob = text.filter(Boolean).join(" ").toLowerCase();
+  if (/reconnect loop|reset loop|cycling established/.test(blob))
+    return "reset-loop";
+  return undefined;
 }
 
 /** Agent names become part of a URL, so keep them conservative. */
@@ -79,7 +95,8 @@ export function normalizePagerDuty(
     // PagerDuty models this as urgency (high/low) rather than a numeric sev.
     severity: priority ?? data.urgency ?? "unknown",
     source: "pagerduty",
-    url: data.html_url
+    url: data.html_url,
+    scenario: inferScenario(data.title, data.description)
   };
 }
 
@@ -132,7 +149,8 @@ export function normalizeJira(payload: JiraPayload): IncidentInput | null {
       .join("\n"),
     severity: f.priority?.name ?? "unknown",
     source: "jira",
-    url: payload.issue?.self
+    url: payload.issue?.self,
+    scenario: inferScenario(f.summary, flattenAdf(f.description))
   };
 }
 

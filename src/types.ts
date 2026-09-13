@@ -52,4 +52,10 @@ export interface RcaWorkflowParams {
   source: IncidentSource;
   /** Agent instance name, so the workflow can call back into the right agent. */
   agentName: string;
+  /**
+   * Selects which synthetic signal set the demo scenarios feed to the model. Only
+   * meaningful for the bundled seeds; a real deployment would pull signals from an
+   * observability backend and ignore this.
+   */
+  scenario?: string;
 }

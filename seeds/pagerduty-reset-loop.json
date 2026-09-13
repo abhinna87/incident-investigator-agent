@@ -1,0 +1,19 @@
+{
+  "_comment": "Synthetic PagerDuty payload. Fictional tenant, service and versions. The scenario shape is deliberately adversarial: a version bump correlates with onset and is the obvious answer, but it is a red herring — the real cause is a lock-contention pattern whose cost grows with peer count. Included to exercise the verify phase, which exists to stop a plausible hypothesis becoming the root cause.",
+  "event": {
+    "id": "01DEMO0000000000000003",
+    "event_type": "incident.triggered",
+    "occurred_at": "2026-09-13T01:52:00Z",
+    "data": {
+      "id": "PDEMO03",
+      "type": "incident",
+      "number": 5177,
+      "title": "Routing peers stuck in a reconnect loop for one large tenant",
+      "urgency": "high",
+      "html_url": "https://example.pagerduty.com/incidents/PDEMO03",
+      "service": { "summary": "route-exchange" },
+      "priority": { "summary": "P1" },
+      "description": "Tenant northwind-retail (approx 2,100 edge sites) has peers cycling Established -> Idle -> Established continuously since 01:40Z. Sessions come up, then drop before converging, then reconnect. No other tenant on the same fleet is affected.\n\nContext offered by the on-call engineer who acknowledged the page:\n- The route-exchange daemon was upgraded from 4.1.0 to 4.2.0 on this fleet nine days ago. 4.2.0 is the obvious suspect.\n- However: this tenant ran 4.2.0 without incident for eight days. Their site count grew roughly 20 percent over the last week as a rollout completed.\n- Restarting the daemon clears the loop for about 40 seconds, then it re-forms.\n- A rollback to 4.1.0 was attempted on one node. The loop re-formed there too, though it took longer to appear.\n- This tenant is the only one that does not have the route-suppression profile applied, so their edges receive per-site prefixes rather than a single default route. Product asked for that visibility explicitly at onboarding.\n- The customer edge devices use a 30 second hold timer, which is not configurable from our side."
+    }
+  }
+}

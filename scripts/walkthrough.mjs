@@ -31,6 +31,13 @@ const SEEDS = {
     file: "seeds/jira-routing-churn.json",
     provider: "jira",
     key: "ops-142"
+  },
+  // Adversarial: a version bump correlates with onset and is the obvious answer,
+  // but the evidence does not support it. Exercises the verify phase.
+  "reset-loop": {
+    file: "seeds/pagerduty-reset-loop.json",
+    provider: "pagerduty",
+    key: "pd-5177"
   }
 };
 
