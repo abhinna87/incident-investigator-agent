@@ -11,8 +11,8 @@
   "license": "MIT",
   "type": "module",
   "scripts": {
-    "dev": "wrangler dev",
-    "start": "wrangler dev",
+    "dev": "vite build && wrangler dev -c dist/incident_investigator_agent/wrangler.json",
+    "start": "npm run dev",
     "deploy": "vite build && wrangler deploy",
     "types": "wrangler types env.d.ts",
     "format": "oxfmt --write .",
@@ -22,7 +22,9 @@
     "test:watch": "vitest --config vitest.config.ts",
     "prompt-history": "./scripts/regen-prompt-history.sh",
     "dev:vite": "vite dev",
-    "walkthrough": "node scripts/walkthrough.mjs"
+    "walkthrough": "node scripts/walkthrough.mjs",
+    "dev:api": "wrangler dev",
+    "build": "vite build"
   },
   "dependencies": {
     "@cloudflare/ai-chat": "^0.9.3",

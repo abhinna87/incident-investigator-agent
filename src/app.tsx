@@ -4,6 +4,7 @@ import { useAgentChat } from "@cloudflare/ai-chat/react";
 import { getToolName, isToolUIPart, type UIMessage } from "ai";
 import type { MCPServersState } from "agents";
 import type { IncidentAgent } from "./server";
+import { PhasePanel } from "./PhasePanel";
 import {
   Badge,
   Button,
@@ -281,8 +282,19 @@ function Chat() {
   const [isAddingServer, setIsAddingServer] = useState(false);
   const mcpPanelRef = useRef<HTMLDivElement>(null);
 
+  // Which incident this tab is attached to. One agent instance per incident, so
+  // the instance name is the incident key. Defaults to the seed incident so the
+  // page is useful immediately after `npm run walkthrough`.
+  const incidentKey =
+    new URLSearchParams(window.location.search).get("incident") || "pd-4821";
+
+  // Bumped whenever the agent broadcasts a phase event, which makes the panel
+  // refetch immediately instead of waiting for its next poll.
+  const [phaseNudge, setPhaseNudge] = useState(0);
+
   const agent = useAgent<IncidentAgent>({
     agent: "IncidentAgent",
+    name: incidentKey,
     onOpen: useCallback(() => setConnected(true), []),
     onClose: useCallback(() => setConnected(false), []),
     onError: useCallback(
@@ -296,6 +308,14 @@ function Chat() {
       (message: MessageEvent) => {
         try {
           const data = JSON.parse(String(message.data));
+          if (
+            data.type === "phase-progress" ||
+            data.type === "phase-done" ||
+            data.type === "investigation-complete"
+          ) {
+            setPhaseNudge((n) => n + 1);
+            return;
+          }
           if (data.type === "scheduled-task") {
             toasts.add({
               title: "Scheduled task completed",
@@ -488,11 +508,11 @@ function Chat() {
         <div className="max-w-3xl mx-auto flex items-center justify-between">
           <div className="flex items-center gap-3">
             <h1 className="text-lg font-semibold text-kumo-default">
-              <span className="mr-2">⛅</span>Agent Starter
+              Incident Investigator
             </h1>
             <Badge variant="secondary">
               <ChatCircleDotsIcon size={12} weight="bold" className="mr-1" />
-              AI Chat
+              {incidentKey}
             </Badge>
           </div>
           <div className="flex items-center gap-3">
@@ -694,268 +714,281 @@ function Chat() {
         </div>
       </header>
 
-      {/* Messages */}
-      <div className="flex-1 overflow-y-auto">
-        <div className="max-w-3xl mx-auto px-5 py-6 space-y-5">
-          {messages.length === 0 && (
-            <Empty
-              icon={<ChatCircleDotsIcon size={32} />}
-              title="Start a conversation"
-              contents={
-                <div className="flex flex-wrap justify-center gap-2">
-                  {[
-                    "What's the weather in Paris?",
-                    "What timezone am I in?",
-                    "Calculate 5000 * 3",
-                    "Remind me in 5 minutes to take a break"
-                  ].map((prompt) => (
-                    <Button
-                      key={prompt}
-                      variant="outline"
-                      size="sm"
-                      disabled={isStreaming}
-                      onClick={() => {
-                        sendMessage({
-                          role: "user",
-                          parts: [{ type: "text", text: prompt }]
-                        });
-                      }}
+      {/* Body: live investigation state on the left, chat on the right. */}
+      <div className="flex-1 flex min-h-0">
+        <PhasePanel incidentKey={incidentKey} nudge={phaseNudge} />
+
+        <div className="flex-1 flex flex-col min-w-0">
+          {/* Messages */}
+          <div className="flex-1 overflow-y-auto">
+            <div className="max-w-3xl mx-auto px-5 py-6 space-y-5">
+              {messages.length === 0 && (
+                <Empty
+                  icon={<ChatCircleDotsIcon size={32} />}
+                  title="Start a conversation"
+                  contents={
+                    <div className="flex flex-wrap justify-center gap-2">
+                      {[
+                        "Summarise where this investigation stands.",
+                        "The standby path was already down — redo the verify step.",
+                        "Query the bgp_session_resets metric for the last hour.",
+                        "Search logs for 'hold timer expired'."
+                      ].map((prompt) => (
+                        <Button
+                          key={prompt}
+                          variant="outline"
+                          size="sm"
+                          disabled={isStreaming}
+                          onClick={() => {
+                            sendMessage({
+                              role: "user",
+                              parts: [{ type: "text", text: prompt }]
+                            });
+                          }}
+                        >
+                          {prompt}
+                        </Button>
+                      ))}
+                    </div>
+                  }
+                />
+              )}
+
+              {messages.map((message: UIMessage, index: number) => {
+                const isUser = message.role === "user";
+                const isLastAssistant =
+                  message.role === "assistant" && index === messages.length - 1;
+
+                return (
+                  <div key={message.id} className="space-y-2">
+                    {showDebug && (
+                      <pre className="text-[11px] text-kumo-subtle bg-kumo-control rounded-lg p-3 overflow-auto max-h-64">
+                        {JSON.stringify(message, null, 2)}
+                      </pre>
+                    )}
+
+                    {/* Render parts in chronological (array) order */}
+                    {message.parts.map((part, i) => {
+                      const key = `${message.id}-${i}`;
+
+                      if (isToolUIPart(part)) {
+                        return (
+                          <ToolPartView
+                            key={key}
+                            part={part}
+                            addToolApprovalResponse={addToolApprovalResponse}
+                          />
+                        );
+                      }
+
+                      if (part.type === "reasoning") {
+                        if (!part.text.trim()) return null;
+                        const isDone = part.state === "done" || !isStreaming;
+                        return (
+                          <div key={key} className="flex justify-start">
+                            <details
+                              className="max-w-[85%] w-full"
+                              open={!isDone}
+                            >
+                              <summary className="flex items-center gap-2 cursor-pointer px-3 py-2 rounded-lg bg-purple-500/10 border border-purple-500/20 text-sm select-none">
+                                <BrainIcon
+                                  size={14}
+                                  className="text-purple-400"
+                                />
+                                <span className="font-medium text-kumo-default">
+                                  Reasoning
+                                </span>
+                                {isDone ? (
+                                  <span className="text-xs text-kumo-success">
+                                    Complete
+                                  </span>
+                                ) : (
+                                  <span className="text-xs text-kumo-brand">
+                                    Thinking...
+                                  </span>
+                                )}
+                                <CaretDownIcon
+                                  size={14}
+                                  className="ml-auto text-kumo-inactive"
+                                />
+                              </summary>
+                              <pre className="mt-2 px-3 py-2 rounded-lg bg-kumo-control text-xs text-kumo-default whitespace-pre-wrap overflow-auto max-h-64">
+                                {part.text}
+                              </pre>
+                            </details>
+                          </div>
+                        );
+                      }
+
+                      if (
+                        part.type === "file" &&
+                        part.mediaType.startsWith("image/")
+                      ) {
+                        return (
+                          <div
+                            key={key}
+                            className={`flex ${isUser ? "justify-end" : "justify-start"}`}
+                          >
+                            <img
+                              src={part.url}
+                              alt="Attachment"
+                              className="max-h-64 rounded-xl border border-kumo-line object-contain"
+                            />
+                          </div>
+                        );
+                      }
+
+                      if (part.type === "text") {
+                        if (!part.text) return null;
+
+                        if (isUser) {
+                          return (
+                            <div key={key} className="flex justify-end">
+                              <div className="max-w-[85%] px-4 py-2.5 rounded-2xl rounded-br-md bg-kumo-contrast text-kumo-inverse leading-relaxed">
+                                {part.text}
+                              </div>
+                            </div>
+                          );
+                        }
+
+                        return (
+                          <div key={key} className="flex justify-start">
+                            <div className="max-w-[85%] rounded-2xl rounded-bl-md bg-kumo-base text-kumo-default leading-relaxed">
+                              <Streamdown
+                                className="sd-theme rounded-2xl rounded-bl-md p-3"
+                                plugins={{ code }}
+                                controls={false}
+                                isAnimating={isLastAssistant && isStreaming}
+                              >
+                                {part.text}
+                              </Streamdown>
+                            </div>
+                          </div>
+                        );
+                      }
+
+                      return null;
+                    })}
+                  </div>
+                );
+              })}
+
+              <div ref={messagesEndRef} />
+            </div>
+          </div>
+
+          {/* Input */}
+          <div className="border-t border-kumo-line bg-kumo-base">
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                send();
+              }}
+              className="max-w-3xl mx-auto px-5 py-4"
+            >
+              <input
+                ref={fileInputRef}
+                type="file"
+                multiple
+                accept="image/*"
+                aria-label="Upload image attachments"
+                className="hidden"
+                onChange={(e) => {
+                  if (e.target.files) addFiles(e.target.files);
+                  e.target.value = "";
+                }}
+              />
+
+              {attachments.length > 0 && (
+                <div className="flex gap-2 mb-2 flex-wrap">
+                  {attachments.map((att) => (
+                    <div
+                      key={att.id}
+                      className="relative group rounded-lg border border-kumo-line bg-kumo-control overflow-hidden"
                     >
-                      {prompt}
-                    </Button>
+                      <img
+                        src={att.preview}
+                        alt={att.file.name}
+                        className="h-16 w-16 object-cover"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => removeAttachment(att.id)}
+                        className="absolute top-0.5 right-0.5 rounded-full bg-kumo-contrast/80 text-kumo-inverse p-0.5 opacity-0 group-hover:opacity-100 transition-opacity"
+                        aria-label={`Remove ${att.file.name}`}
+                      >
+                        <XIcon size={10} />
+                      </button>
+                    </div>
                   ))}
                 </div>
-              }
-            />
-          )}
+              )}
 
-          {messages.map((message: UIMessage, index: number) => {
-            const isUser = message.role === "user";
-            const isLastAssistant =
-              message.role === "assistant" && index === messages.length - 1;
-
-            return (
-              <div key={message.id} className="space-y-2">
-                {showDebug && (
-                  <pre className="text-[11px] text-kumo-subtle bg-kumo-control rounded-lg p-3 overflow-auto max-h-64">
-                    {JSON.stringify(message, null, 2)}
-                  </pre>
-                )}
-
-                {/* Render parts in chronological (array) order */}
-                {message.parts.map((part, i) => {
-                  const key = `${message.id}-${i}`;
-
-                  if (isToolUIPart(part)) {
-                    return (
-                      <ToolPartView
-                        key={key}
-                        part={part}
-                        addToolApprovalResponse={addToolApprovalResponse}
-                      />
-                    );
-                  }
-
-                  if (part.type === "reasoning") {
-                    if (!part.text.trim()) return null;
-                    const isDone = part.state === "done" || !isStreaming;
-                    return (
-                      <div key={key} className="flex justify-start">
-                        <details className="max-w-[85%] w-full" open={!isDone}>
-                          <summary className="flex items-center gap-2 cursor-pointer px-3 py-2 rounded-lg bg-purple-500/10 border border-purple-500/20 text-sm select-none">
-                            <BrainIcon size={14} className="text-purple-400" />
-                            <span className="font-medium text-kumo-default">
-                              Reasoning
-                            </span>
-                            {isDone ? (
-                              <span className="text-xs text-kumo-success">
-                                Complete
-                              </span>
-                            ) : (
-                              <span className="text-xs text-kumo-brand">
-                                Thinking...
-                              </span>
-                            )}
-                            <CaretDownIcon
-                              size={14}
-                              className="ml-auto text-kumo-inactive"
-                            />
-                          </summary>
-                          <pre className="mt-2 px-3 py-2 rounded-lg bg-kumo-control text-xs text-kumo-default whitespace-pre-wrap overflow-auto max-h-64">
-                            {part.text}
-                          </pre>
-                        </details>
-                      </div>
-                    );
-                  }
-
-                  if (
-                    part.type === "file" &&
-                    part.mediaType.startsWith("image/")
-                  ) {
-                    return (
-                      <div
-                        key={key}
-                        className={`flex ${isUser ? "justify-end" : "justify-start"}`}
-                      >
-                        <img
-                          src={part.url}
-                          alt="Attachment"
-                          className="max-h-64 rounded-xl border border-kumo-line object-contain"
-                        />
-                      </div>
-                    );
-                  }
-
-                  if (part.type === "text") {
-                    if (!part.text) return null;
-
-                    if (isUser) {
-                      return (
-                        <div key={key} className="flex justify-end">
-                          <div className="max-w-[85%] px-4 py-2.5 rounded-2xl rounded-br-md bg-kumo-contrast text-kumo-inverse leading-relaxed">
-                            {part.text}
-                          </div>
-                        </div>
-                      );
+              <div className="flex items-end gap-3 rounded-xl border border-kumo-line bg-kumo-base p-3 shadow-sm focus-within:ring-2 focus-within:ring-kumo-ring focus-within:border-transparent transition-shadow">
+                <Button
+                  type="button"
+                  variant="ghost"
+                  shape="square"
+                  aria-label="Attach images"
+                  icon={<PaperclipIcon size={18} />}
+                  onClick={() => fileInputRef.current?.click()}
+                  disabled={!connected || isStreaming}
+                  className="mb-0.5"
+                />
+                <InputArea
+                  ref={textareaRef}
+                  value={input}
+                  onValueChange={setInput}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" && !e.shiftKey) {
+                      e.preventDefault();
+                      send();
                     }
-
-                    return (
-                      <div key={key} className="flex justify-start">
-                        <div className="max-w-[85%] rounded-2xl rounded-bl-md bg-kumo-base text-kumo-default leading-relaxed">
-                          <Streamdown
-                            className="sd-theme rounded-2xl rounded-bl-md p-3"
-                            plugins={{ code }}
-                            controls={false}
-                            isAnimating={isLastAssistant && isStreaming}
-                          >
-                            {part.text}
-                          </Streamdown>
-                        </div>
-                      </div>
-                    );
+                  }}
+                  onInput={(e) => {
+                    const el = e.currentTarget;
+                    el.style.height = "auto";
+                    el.style.height = `${el.scrollHeight}px`;
+                  }}
+                  onPaste={handlePaste}
+                  placeholder={
+                    attachments.length > 0
+                      ? "Add a message or send images..."
+                      : "Send a message..."
                   }
-
-                  return null;
-                })}
-              </div>
-            );
-          })}
-
-          <div ref={messagesEndRef} />
-        </div>
-      </div>
-
-      {/* Input */}
-      <div className="border-t border-kumo-line bg-kumo-base">
-        <form
-          onSubmit={(e) => {
-            e.preventDefault();
-            send();
-          }}
-          className="max-w-3xl mx-auto px-5 py-4"
-        >
-          <input
-            ref={fileInputRef}
-            type="file"
-            multiple
-            accept="image/*"
-            aria-label="Upload image attachments"
-            className="hidden"
-            onChange={(e) => {
-              if (e.target.files) addFiles(e.target.files);
-              e.target.value = "";
-            }}
-          />
-
-          {attachments.length > 0 && (
-            <div className="flex gap-2 mb-2 flex-wrap">
-              {attachments.map((att) => (
-                <div
-                  key={att.id}
-                  className="relative group rounded-lg border border-kumo-line bg-kumo-control overflow-hidden"
-                >
-                  <img
-                    src={att.preview}
-                    alt={att.file.name}
-                    className="h-16 w-16 object-cover"
-                  />
-                  <button
+                  disabled={!connected || isStreaming}
+                  rows={1}
+                  className="flex-1 ring-0! focus:ring-0! shadow-none! bg-transparent! outline-none! resize-none max-h-40"
+                />
+                {isStreaming ? (
+                  <Button
                     type="button"
-                    onClick={() => removeAttachment(att.id)}
-                    className="absolute top-0.5 right-0.5 rounded-full bg-kumo-contrast/80 text-kumo-inverse p-0.5 opacity-0 group-hover:opacity-100 transition-opacity"
-                    aria-label={`Remove ${att.file.name}`}
-                  >
-                    <XIcon size={10} />
-                  </button>
-                </div>
-              ))}
+                    variant="secondary"
+                    shape="square"
+                    aria-label="Stop generation"
+                    icon={<StopIcon size={18} />}
+                    onClick={stop}
+                    className="mb-0.5"
+                  />
+                ) : (
+                  <Button
+                    type="submit"
+                    variant="primary"
+                    shape="square"
+                    aria-label="Send message"
+                    disabled={
+                      (!input.trim() && attachments.length === 0) || !connected
+                    }
+                    icon={<PaperPlaneRightIcon size={18} />}
+                    className="mb-0.5"
+                  />
+                )}
+              </div>
+            </form>
+            <div className="flex justify-center pb-3">
+              <PoweredByCloudflare href="https://developers.cloudflare.com/agents/" />
             </div>
-          )}
-
-          <div className="flex items-end gap-3 rounded-xl border border-kumo-line bg-kumo-base p-3 shadow-sm focus-within:ring-2 focus-within:ring-kumo-ring focus-within:border-transparent transition-shadow">
-            <Button
-              type="button"
-              variant="ghost"
-              shape="square"
-              aria-label="Attach images"
-              icon={<PaperclipIcon size={18} />}
-              onClick={() => fileInputRef.current?.click()}
-              disabled={!connected || isStreaming}
-              className="mb-0.5"
-            />
-            <InputArea
-              ref={textareaRef}
-              value={input}
-              onValueChange={setInput}
-              onKeyDown={(e) => {
-                if (e.key === "Enter" && !e.shiftKey) {
-                  e.preventDefault();
-                  send();
-                }
-              }}
-              onInput={(e) => {
-                const el = e.currentTarget;
-                el.style.height = "auto";
-                el.style.height = `${el.scrollHeight}px`;
-              }}
-              onPaste={handlePaste}
-              placeholder={
-                attachments.length > 0
-                  ? "Add a message or send images..."
-                  : "Send a message..."
-              }
-              disabled={!connected || isStreaming}
-              rows={1}
-              className="flex-1 ring-0! focus:ring-0! shadow-none! bg-transparent! outline-none! resize-none max-h-40"
-            />
-            {isStreaming ? (
-              <Button
-                type="button"
-                variant="secondary"
-                shape="square"
-                aria-label="Stop generation"
-                icon={<StopIcon size={18} />}
-                onClick={stop}
-                className="mb-0.5"
-              />
-            ) : (
-              <Button
-                type="submit"
-                variant="primary"
-                shape="square"
-                aria-label="Send message"
-                disabled={
-                  (!input.trim() && attachments.length === 0) || !connected
-                }
-                icon={<PaperPlaneRightIcon size={18} />}
-                className="mb-0.5"
-              />
-            )}
           </div>
-        </form>
-        <div className="flex justify-center pb-3">
-          <PoweredByCloudflare href="https://developers.cloudflare.com/agents/" />
         </div>
       </div>
     </div>

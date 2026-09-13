@@ -140,9 +140,11 @@ npx wrangler login        # free account is fine
 npm run dev               # http://localhost:8787
 ```
 
-`npm run dev` runs `wrangler dev` rather than `vite dev`. That is deliberate: the
-Vite plugin opens a remote proxy session for the AI binding, which additionally
-requires a workers.dev subdomain to be registered on the account, and fails with
+`npm run dev` builds the UI and then serves it from `wrangler dev` using the
+generated config, so the chat UI and the API share one port. It deliberately avoids
+`vite dev`: the Vite plugin opens a remote proxy session for the AI binding, which
+additionally requires a workers.dev subdomain registered on the account, and fails
+with
 
 ```
 You need to register a workers.dev subdomain before running the dev command in
@@ -158,9 +160,11 @@ env.RCA_WORKFLOW    Workflow         local
 env.AI              AI               remote
 ```
 
-The agent and the workflow run on your machine; only the model call leaves it. If
-you want the Vite dev server with hot module reloading for UI work, register a
-subdomain and use `npm run dev:vite`.
+The agent and the workflow run on your machine; only the model call leaves it.
+
+Other scripts: `npm run dev:api` skips the UI build for a faster loop when changing
+worker code, and `npm run dev:vite` gives hot module reloading for UI work (that one
+does need the subdomain).
 
 Send a synthetic incident:
 
@@ -231,8 +235,21 @@ Or inspect an incident directly:
 curl http://localhost:8787/api/incident/pd-4821 | jq
 ```
 
-Then open the UI to chat with that incident. You can interrupt at any point and
-tell the agent it is wrong; corrections take precedence over its own prior output.
+### The UI
+
+Open <http://localhost:8787/?incident=pd-4821>. The left panel is the live
+investigation — the incident header, the five phases filling in as they land, and
+the timeline. Click any completed phase to read the model's full output. The right
+side is chat with that same incident: you can interrupt mid-investigation and tell
+the agent it is wrong, and the correction takes precedence over its own prior
+output.
+
+The panel polls `GET /api/incident/:key` rather than relying only on the WebSocket,
+because the socket carries only events that occur while the tab is open — a refresh,
+or opening the UI an hour after the page fired, would otherwise show nothing.
+
+The `?incident=` parameter selects which agent instance the page attaches to, so two
+tabs can watch two different incidents at once.
 
 ### Tests
 

@@ -6,10 +6,10 @@ redacted (see `scripts/export-prompt-history.mjs` for the redaction rules).
 
 | | |
 |---|---|
-| Human turns | 16 |
-| Total turns | 216 |
+| Human turns | 18 |
+| Total turns | 252 |
 | Started | 2026-09-09T13:49:51.911Z |
-| Last activity | 2026-09-13T21:48:30.325Z |
+| Last activity | 2026-09-13T22:01:30.377Z |
 | Source | `03f9dad5-4d89-4240-894b-097fd09f11eb.jsonl` (Claude Code JSONL) |
 
 Assistant turns are summarised to the tools they invoked plus their prose, so
@@ -1067,6 +1067,123 @@ how do i run and see step by step why is going on, can you record a demo/a walkt
 > **Tools:** Bash
 
 > Both fixed: **`status: rca-ready`** and a clean timeline (`ingested` → `complete`), whole run in 15 seconds. Let me tidy one last cosmetic line, document it, and commit.
+
+> **Tools:** Bash
+
+> **Tools:** Bash
+
+> ## How to run it and watch it, step by step
+> 
+> Two terminals:
+> 
+> ```
+> cd ~/incident-investigator-agent
+> 
+> # terminal 1
+> npm run dev
+> 
+> # terminal 2
+> npm run walkthrough
+> ```
+> 
+> That's it. About 15 seconds. It prints, in order:
+> 
+> 1. **The incident being raised** — the actual webhook payload, so the input isn't a mystery
+> 2. **It arriving** — signature verified, routed to a durable agent named `pd-4821`
+> 3. **Each of the five phases as it completes** — with the question that phase asks and the model's real answer
+> 4. **Proof it persisted** — status, phase count, timeline
+> 
+> For the other scenario: `node scripts/walkthrough.mjs jira`
+> 
+> To poke at it directly: `curl http://localhost:8787/api/incident/pd-4821 | jq`
+> 
+> ## On recording a demo
+> 
+> I can't record video or screen-capture. What I built instead is a script that *is* the demo — you run it, it narrates itself, and it produces real output every time rather than a stale recording. You can also pipe it to a file (`npm run walkthrough > demo.txt`) if you want something to attach or paste.
+> 
+> ## Two more bugs that running it exposed
+> 
+> This is the third time now that running has found things compiling didn't:
+> 
+> 1. **Incidents never left `investigating`** — even wi …
+
+## 17. Prompt
+
+```text
+[Image #10]
+```
+
+## 18. Prompt
+
+```text
+[Image: source: ~/.claude/image-cache/03f9dad5-4d89-4240-894b-097fd09f11eb/10.png]
+```
+
+> Right — `wrangler dev` serves the API but **not the UI**. The UI is built by Vite (`index.html` + `src/client.tsx`), and `wrangler dev` only serves `./public`, which has just a favicon. My README told you to open the UI; that was wrong.
+> 
+> Let me see what a build produces.
+
+> **Tools:** Bash
+
+> Build produces `dist/client/` (UI) plus a generated `wrangler.json`. Let me see how it wires assets, then make one command serve both.
+
+> **Tools:** Bash
+
+> The generated config points assets at `../client` and preserves all my bindings. So building then running wrangler against that config gives UI **and** API on one port, no subdomain needed. Let me verify.
+
+> **Tools:** Bash
+
+> UI and API both live on 8787. Fixing the scripts so `npm run dev` does this by default, and correcting the page title (still says "Agent Starter").
+
+> **Tools:** Bash
+
+> **Tools:** Bash
+
+> **Tools:** Read
+
+> UI serves now — but it's transparently the starter: "Agent Starter", weather/timezone prompts, no phase panel, and "Disconnected" because no incident is selected. Let me look at the parts I need to graft onto.
+
+> **Tools:** Bash
+
+> **Tools:** Bash
+
+> Good seams. Building the phase panel as a self-contained component, plus rebranding.
+
+> **Tools:** Write
+
+> Now wire it into the app: brand the header, swap the prompts, connect to the selected incident, and mount the panel.
+
+> **Tools:** Bash
+
+> Now mount the panel in the layout — I need to find the wrapper that holds the chat.
+
+> **Tools:** Bash
+
+> **Tools:** Bash
+
+> **Tools:** Bash
+
+> **Tools:** Bash
+
+> Typecheck clean. Building and screenshotting with a real incident loaded.
+
+> **Tools:** Bash
+
+> **Tools:** Read
+
+> UI is real now: branded header, incident header with severity, all five phases green with their questions, timeline, and on-call-relevant prompts. But **"Disconnected"** in red — the WebSocket isn't connecting. Let me check.
+
+> **Tools:** Bash
+
+> False alarm — the log shows `101 Switching Protocols` **twice** plus `get-messages 200 OK`. The WebSocket connected fine; headless Chrome just screenshotted before `onOpen` fired. (The curl 404/400 are expected — those routes need a WebSocket upgrade header.)
+> 
+> Let me confirm with a longer render budget, then commit.
+
+> **Tools:** Bash
+
+> **Tools:** Read
+
+> **Connected** (green). It was purely a screenshot timing artifact. Committing.
 
 > **Tools:** Bash
 
