@@ -364,17 +364,11 @@ production: `ALLOW_UNSIGNED_WEBHOOKS` exists only in the local dev vars.
 
 ## Prompt history
 
-The assignment asks for prompt history. **[`docs/prompt-history.md`](docs/prompt-history.md)**
-is hand-written and clearly labelled as curated at the top: thirteen entries covering
-the prompts and design decisions that shaped the submission, each recording what the
-model got wrong (or almost got wrong) and how it was corrected. That is the version
-worth reading, and the only one shipped.
-
-The extractor script (`scripts/export-prompt-history.mjs`) is retained so anyone
-who wants a machine dump of the underlying Claude Code JSONL can produce one
-locally. Its output is gitignored — a raw transcript is not shipped, because the
-value of shipping one does not outweigh the risk of an incomplete redaction list
-missing an internal reference in free prose.
+The assignment asks for prompt history alongside the code.
+**[`docs/prompt-history.md`](docs/prompt-history.md)** is the record: hand-written
+and clearly labelled as curated at the top, thirteen entries covering the prompts
+and design decisions that shaped this submission and — for each — what the model
+got wrong (or almost got wrong) and how it was corrected.
 
 ## Layout
 

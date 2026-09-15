@@ -6,12 +6,6 @@ of which is UI-scoped back-and-forth about run commands and CSS — this is the
 subset of prompts and decisions that actually shaped the submission, with the
 model's mistake and how it was corrected recorded next to each one.
 
-The raw-extraction script (`scripts/export-prompt-history.mjs`) is retained for
-anyone who wants to produce a machine dump locally. Its output is gitignored — a
-raw transcript is not shipped, because free-form prose can slip past a
-category-only redactor and there is little value in shipping one when this
-curated file exists.
-
 Model: Claude (via Claude Code). The prompts below are mine; the assistant work
 they steer is what became this repo.
 
@@ -253,10 +247,11 @@ from live runs, including that a lone asterisk in `"rate is 3 * 4"` survives.
 > raw transcript. Bake a redaction check into the extractor so employer names,
 > internal codenames, ticket IDs, and credentials can't slip through."
 
-**What that produced.** This file, plus `scripts/export-prompt-history.mjs` for
-the raw path if a reader wants it. The extractor exits non-zero if any of the
-redaction patterns still matches its own output — belt-and-suspenders. Both files
-are in the repo; this is the one worth reading.
+**What that produced.** This file — hand-written, honestly labelled at the top,
+and organised so a reader sees the meaningful decisions and where the model was
+wrong, not the fumbling for a run command. A raw session dump was considered and
+rejected: a category-only redactor cannot reliably scrub every reference in free
+prose, and the value of shipping raw is small when the curated file exists.
 
 ---
 
@@ -272,8 +267,3 @@ are in the repo; this is the one worth reading.
 - **An unrelated project sharing the same Claude Code session.** Different
   problem, different repo; dropped entirely from this file so the record is
   about the Cloudflare submission and nothing else.
-
-If a raw dump is wanted, run
-`scripts/export-prompt-history.mjs <transcript.jsonl> --out /tmp/history.md`
-locally; add employer-specific patterns to `scripts/redactions.local.json`
-(gitignored) first.

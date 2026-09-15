@@ -20,7 +20,6 @@
     "check": "oxfmt --check . && oxlint src/ && tsc",
     "test": "vitest run --config vitest.config.ts",
     "test:watch": "vitest --config vitest.config.ts",
-    "prompt-history": "./scripts/regen-prompt-history.sh",
     "dev:vite": "vite dev",
     "walkthrough": "node scripts/walkthrough.mjs",
     "dev:api": "wrangler dev",
