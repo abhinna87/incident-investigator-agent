@@ -3,4 +3,4 @@ dist
 .wrangler
 package-lock.json
 env.d.ts
-docs/prompt-history.md
+docs/prompt-history.raw.md

@@ -364,15 +364,21 @@ production: `ALLOW_UNSIGNED_WEBHOOKS` exists only in the local dev vars.
 
 ## Prompt history
 
-The assignment asks for prompt history. `docs/prompt-history.md` is the real
-session log, extracted from the Claude Code transcript by
-`scripts/export-prompt-history.mjs` and redacted by the rules in that script
-(employer names, internal system and metric names, ticket ids, hosts, credentials).
-Regenerate with `npm run prompt-history`.
+The assignment asks for prompt history. Two files:
 
-It is worth reading for the corrections rather than the successes — the places
-where the model's first answer was wrong and had to be redirected are the parts
-that show how the work was actually steered.
+- **[`docs/prompt-history.md`](docs/prompt-history.md)** — **curated, hand-written**,
+  and clearly labelled as such at the top. Thirteen entries: the prompt or design
+  decision, what the model got wrong or almost got wrong, and how it was corrected.
+  Read this one.
+- **[`docs/prompt-history.raw.md`](docs/prompt-history.raw.md)** — mechanically
+  extracted from the Claude Code transcript by
+  `scripts/export-prompt-history.mjs`, redacted by the rules in that script (employer
+  names, internal system and metric names, ticket ids, hosts, credentials). Regenerate
+  with `npm run prompt-history`.
+
+The curated file is the one that shows the work being _steered_. The raw file is
+there for anyone who wants to see the full session, including the parts that were
+just fumbling for a run command.
 
 ## Layout
 
