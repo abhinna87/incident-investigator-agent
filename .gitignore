@@ -3,4 +3,6 @@
 .dev.vars
 .wrangler/
 dist/
+docs/prompt-history.raw.md
 node_modules/
+scripts/redactions.local.json

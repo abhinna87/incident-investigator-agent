@@ -6,11 +6,11 @@ of which is UI-scoped back-and-forth about run commands and CSS — this is the
 subset of prompts and decisions that actually shaped the submission, with the
 model's mistake and how it was corrected recorded next to each one.
 
-The raw-extraction script (`scripts/export-prompt-history.mjs`) is still in the
-repo; running it against the source JSONL produces the full session, redacted by
-the same rules used here (employer names, internal codenames, ticket IDs,
-credentials, private IPs). Both files are available; this one is the one worth
-reading.
+The raw-extraction script (`scripts/export-prompt-history.mjs`) is retained for
+anyone who wants to produce a machine dump locally. Its output is gitignored — a
+raw transcript is not shipped, because free-form prose can slip past a
+category-only redactor and there is little value in shipping one when this
+curated file exists.
 
 Model: Claude (via Claude Code). The prompts below are mine; the assistant work
 they steer is what became this repo.
@@ -273,5 +273,7 @@ are in the repo; this is the one worth reading.
   problem, different repo; dropped entirely from this file so the record is
   about the Cloudflare submission and nothing else.
 
-If a raw dump was expected, run `scripts/export-prompt-history.mjs
-<transcript.jsonl> --out docs/prompt-history.raw.md`.
+If a raw dump is wanted, run
+`scripts/export-prompt-history.mjs <transcript.jsonl> --out /tmp/history.md`
+locally; add employer-specific patterns to `scripts/redactions.local.json`
+(gitignored) first.

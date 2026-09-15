@@ -364,21 +364,17 @@ production: `ALLOW_UNSIGNED_WEBHOOKS` exists only in the local dev vars.
 
 ## Prompt history
 
-The assignment asks for prompt history. Two files:
+The assignment asks for prompt history. **[`docs/prompt-history.md`](docs/prompt-history.md)**
+is hand-written and clearly labelled as curated at the top: thirteen entries covering
+the prompts and design decisions that shaped the submission, each recording what the
+model got wrong (or almost got wrong) and how it was corrected. That is the version
+worth reading, and the only one shipped.
 
-- **[`docs/prompt-history.md`](docs/prompt-history.md)** — **curated, hand-written**,
-  and clearly labelled as such at the top. Thirteen entries: the prompt or design
-  decision, what the model got wrong or almost got wrong, and how it was corrected.
-  Read this one.
-- **[`docs/prompt-history.raw.md`](docs/prompt-history.raw.md)** — mechanically
-  extracted from the Claude Code transcript by
-  `scripts/export-prompt-history.mjs`, redacted by the rules in that script (employer
-  names, internal system and metric names, ticket ids, hosts, credentials). Regenerate
-  with `npm run prompt-history`.
-
-The curated file is the one that shows the work being _steered_. The raw file is
-there for anyone who wants to see the full session, including the parts that were
-just fumbling for a run command.
+The extractor script (`scripts/export-prompt-history.mjs`) is retained so anyone
+who wants a machine dump of the underlying Claude Code JSONL can produce one
+locally. Its output is gitignored — a raw transcript is not shipped, because the
+value of shipping one does not outweigh the risk of an incomplete redaction list
+missing an internal reference in free prose.
 
 ## Layout
 
